@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import base64
 from pathlib import Path
 
@@ -8,6 +9,17 @@ try:
     DPAPI_AVAILABLE = True
 except ImportError:
     DPAPI_AVAILABLE = False
+
+
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 class ConfigManager:
@@ -27,18 +39,20 @@ class ConfigManager:
     def load(self) -> dict:
         """Load configuration from file"""
         if not os.path.exists(self.config_path):
-            # Try loading from project config folder
+            # Try loading from project config folder (development)
             project_config = os.path.join('config', 'config.json')
             if os.path.exists(project_config):
                 with open(project_config, 'r') as f:
                     self.config = json.load(f)
             else:
-                # Load template
-                template_path = os.path.join('config', 'config.template.json')
+                # Load template (works for both dev and PyInstaller exe)
+                template_path = get_resource_path(os.path.join('config', 'config.template.json'))
                 if os.path.exists(template_path):
                     with open(template_path, 'r') as f:
                         self.config = json.load(f)
                 else:
+                    # Fallback to hardcoded defaults
+                    print(f"Warning: Template not found at {template_path}, using defaults")
                     self.config = self._get_default_config()
         else:
             with open(self.config_path, 'r') as f:
