@@ -7,8 +7,16 @@ QUICK START
 -----------
 
 1. SETUP (First time only):
-   - Create a file named "config.json" in the same folder as this exe
+   - Create a folder named "config" next to VoiceDictation.exe
+   - Inside that folder, create a file named "config.json"
    - Copy the template below and fill in your API keys
+
+   Your folder structure should look like:
+   VoiceDictation/
+   ├── VoiceDictation.exe
+   ├── config/
+   │   └── config.json    ← CREATE THIS FILE
+   └── README_USER.txt
 
 2. GET API KEYS (Free options):
    - Groq (Recommended): https://console.groq.com
