@@ -10,24 +10,12 @@ import sys
 import threading
 import time
 
-# Add src directory to path for both development and PyInstaller
-if getattr(sys, 'frozen', False):
-    # Running as compiled exe
-    application_path = os.path.dirname(sys.executable)
-    # Add the temp PyInstaller folder to path
-    sys.path.insert(0, sys._MEIPASS)
-else:
-    # Running as script
-    application_path = os.path.dirname(os.path.abspath(__file__))
-    # Add parent directory (src) to path
-    sys.path.insert(0, os.path.dirname(application_path))
-
-from core.config_manager import ConfigManager
-from core.audio_recorder import AudioRecorder
-from core.hotkey_manager import HotkeyManager
-from core.text_processor import TextProcessor
-from ui.system_tray import SystemTray
-from ui.settings_window import SettingsWindow
+from src.core.config_manager import ConfigManager
+from src.core.audio_recorder import AudioRecorder
+from src.core.hotkey_manager import HotkeyManager
+from src.core.text_processor import TextProcessor
+from src.ui.system_tray import SystemTray
+from src.ui.settings_window import SettingsWindow
 
 
 class VoiceDictationApp:
