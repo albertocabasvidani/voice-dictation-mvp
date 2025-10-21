@@ -3,16 +3,14 @@ from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Get all source files
-src_files = Tree('src', prefix='src', excludes=['__pycache__'])
-
 a = Analysis(
     ['run_app.py'],
     pathex=[],
     binaries=[],
     datas=[
         ('config/config.template.json', 'config'),
-    ] + src_files.TOC,
+        ('src', 'src'),
+    ],
     hiddenimports=[
         'src',
         'src.core',
