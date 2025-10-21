@@ -84,6 +84,15 @@ Esempio `config/config.json`:
 
 ## Uso
 
+### Opzione 1: Eseguibile Windows (Più Semplice)
+
+1. **Download** o build eseguibile (vedi sezione Build)
+2. Crea `config.json` con le tue API keys (vedi `README_USER.txt`)
+3. Esegui `VoiceDictation.exe`
+4. Premi `Ctrl+Shift+Space` per registrare
+
+### Opzione 2: Da Codice Sorgente
+
 1. Avvia l'app:
    ```bash
    python src/main.py
@@ -93,6 +102,25 @@ Esempio `config/config.json`:
 3. Parla
 4. Rilascia hotkey
 5. Il testo verrà inserito automaticamente
+
+## Build Eseguibile Windows
+
+### Build Automatico
+
+```cmd
+build_exe.bat
+```
+
+Output: `dist/VoiceDictation.exe`
+
+### Build Manuale
+
+```bash
+pip install pyinstaller
+pyinstaller VoiceDictation.spec
+```
+
+Vedi `BUILD.md` per dettagli completi.
 
 ## Sviluppo
 

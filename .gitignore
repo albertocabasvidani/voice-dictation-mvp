@@ -46,7 +46,7 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Build
-*.spec
+# Build (keep .spec for distribution)
 build/
 dist/
+*.exe
