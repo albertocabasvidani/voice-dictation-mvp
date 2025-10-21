@@ -3,13 +3,13 @@ import pyperclip
 import pyautogui
 from typing import Optional
 
-from ..providers.transcription import (
+from providers.transcription import (
     TranscriptionProvider,
     GroqWhisperProvider,
     OpenAIWhisperProvider,
     DeepgramProvider
 )
-from ..providers.llm import (
+from providers.llm import (
     LLMProvider,
     OllamaProvider,
     OpenAILLMProvider,
@@ -74,14 +74,14 @@ class TextProcessor:
 
     def _get_transcription_api_key(self) -> str:
         """Get transcription API key from config"""
-        from .config_manager import ConfigManager
+        from core.config_manager import ConfigManager
         config_manager = ConfigManager()
         config_manager.config = self.config
         return config_manager.get_transcription_api_key()
 
     def _get_llm_api_key(self) -> str:
         """Get LLM API key from config"""
-        from .config_manager import ConfigManager
+        from core.config_manager import ConfigManager
         config_manager = ConfigManager()
         config_manager.config = self.config
         return config_manager.get_llm_api_key()

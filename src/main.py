@@ -10,6 +10,18 @@ import sys
 import threading
 import time
 
+# Add src directory to path for both development and PyInstaller
+if getattr(sys, 'frozen', False):
+    # Running as compiled exe
+    application_path = os.path.dirname(sys.executable)
+    # Add the temp PyInstaller folder to path
+    sys.path.insert(0, sys._MEIPASS)
+else:
+    # Running as script
+    application_path = os.path.dirname(os.path.abspath(__file__))
+    # Add parent directory (src) to path
+    sys.path.insert(0, os.path.dirname(application_path))
+
 from core.config_manager import ConfigManager
 from core.audio_recorder import AudioRecorder
 from core.hotkey_manager import HotkeyManager
