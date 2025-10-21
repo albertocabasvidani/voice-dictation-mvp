@@ -1,0 +1,1 @@
+Hello, today I exported about 1,500 subscribers because I wanted to import them into Notion, but I found out that the values stored in custom fields changed over time. For example, I found phone numbers in place of last names. Does this depend on the way MailerLite
