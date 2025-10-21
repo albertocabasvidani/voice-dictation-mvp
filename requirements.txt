@@ -1,0 +1,29 @@
+# Audio recording
+sounddevice==0.4.6
+scipy==1.11.4
+numpy==1.26.2
+
+# UI
+pystray==0.19.5
+Pillow==10.1.0
+
+# Hotkey management
+keyboard==0.13.5
+pynput==1.7.6
+
+# Clipboard and keyboard automation
+pyperclip==1.8.2
+pyautogui==0.9.54
+
+# HTTP requests
+requests==2.31.0
+
+# Encryption (Windows DPAPI)
+pywin32==306
+
+# Configuration
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.3
+pytest-mock==3.12.0

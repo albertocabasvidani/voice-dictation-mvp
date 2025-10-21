@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "hotkey": {
+    "modifiers": ["ctrl", "shift"],
+    "key": "space"
+  },
+  "transcription": {
+    "provider": "groq",
+    "api_key_encrypted": "",
+    "options": {
+      "language": "auto"
+    }
+  },
+  "llm": {
+    "provider": "ollama",
+    "api_key_encrypted": "",
+    "model": "llama3.2:3b",
+    "ollama_url": "http://localhost:11434",
+    "temperature": 0.3,
+    "max_tokens": 500
+  },
+  "audio": {
+    "device_index": -1,
+    "sample_rate": 16000
+  },
+  "behavior": {
+    "auto_paste": true,
+    "show_overlay": true
+  }
+}
