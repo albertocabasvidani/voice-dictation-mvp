@@ -22,17 +22,46 @@ if errorlevel 1 (
 )
 
 echo.
-echo Step 2: Cleaning previous builds...
+echo Step 2: Preserving config.json if exists...
+if exist dist\config\config.json (
+    echo Config found, backing up...
+    copy dist\config\config.json config_backup.json >nul
+    set CONFIG_BACKUP=1
+) else (
+    set CONFIG_BACKUP=0
+)
+
+echo.
+echo Step 3: Cleaning previous builds...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 echo.
-echo Step 3: Building executable...
+echo Step 4: Building executable...
 pyinstaller VoiceDictation.spec
 if errorlevel 1 (
     echo ERROR: Build failed
+    if %CONFIG_BACKUP%==1 (
+        echo Restoring config backup...
+        mkdir dist\config 2>nul
+        copy config_backup.json dist\config\config.json >nul
+        del config_backup.json
+    )
     pause
     exit /b 1
+)
+
+echo.
+echo Step 5: Restoring config.json if backed up...
+if %CONFIG_BACKUP%==1 (
+    echo Restoring your config...
+    mkdir dist\config 2>nul
+    copy config_backup.json dist\config\config.json >nul
+    del config_backup.json
+    echo Config restored!
+) else (
+    echo No previous config found
+    echo You need to create dist\config\config.json
 )
 
 echo.
@@ -42,9 +71,14 @@ echo ================================================
 echo.
 echo Executable location: dist\VoiceDictation.exe
 echo.
-echo Next steps:
-echo 1. Copy config\config.template.json to config\config.json
-echo 2. Edit config.json with your API keys
-echo 3. Run dist\VoiceDictation.exe
+if %CONFIG_BACKUP%==1 (
+    echo Config: Already configured - ready to use!
+) else (
+    echo Next steps:
+    echo 1. Create dist\config\config.json from template
+    echo 2. Add your API keys
+)
+echo.
+echo Run: dist\VoiceDictation.exe
 echo.
 pause

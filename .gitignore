@@ -27,6 +27,8 @@ ENV/
 
 # Configuration (contains encrypted API keys)
 config/config.json
+dist/config/config.json
+config_backup.json
 *.log
 .env
 .env.bak
