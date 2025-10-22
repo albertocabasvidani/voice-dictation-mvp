@@ -37,26 +37,47 @@ class ConfigManager:
         Path(self.config_path).parent.mkdir(parents=True, exist_ok=True)
 
     def load(self) -> dict:
-        """Load configuration from file"""
-        if not os.path.exists(self.config_path):
-            # Try loading from project config folder (development)
-            project_config = os.path.join('config', 'config.json')
-            if os.path.exists(project_config):
-                with open(project_config, 'r') as f:
-                    self.config = json.load(f)
-            else:
-                # Load template (works for both dev and PyInstaller exe)
-                template_path = get_resource_path(os.path.join('config', 'config.template.json'))
-                if os.path.exists(template_path):
-                    with open(template_path, 'r') as f:
-                        self.config = json.load(f)
-                else:
-                    # Fallback to hardcoded defaults
-                    print(f"Warning: Template not found at {template_path}, using defaults")
-                    self.config = self._get_default_config()
-        else:
+        """Load configuration from file - search order:
+        1. Next to executable (config.json)
+        2. AppData user folder (default)
+        3. Project config folder (development)
+        4. Template file
+        """
+        # 1. Try config.json next to executable (portable mode)
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+        local_config = os.path.join(exe_dir, 'config.json')
+
+        if os.path.exists(local_config):
+            print(f"Loading config from: {local_config}")
+            with open(local_config, 'r') as f:
+                self.config = json.load(f)
+                return self.config
+
+        # 2. Try AppData folder (default Windows location)
+        if os.path.exists(self.config_path):
+            print(f"Loading config from: {self.config_path}")
             with open(self.config_path, 'r') as f:
                 self.config = json.load(f)
+                return self.config
+
+        # 3. Try project config folder (development)
+        project_config = os.path.join('config', 'config.json')
+        if os.path.exists(project_config):
+            print(f"Loading config from: {project_config}")
+            with open(project_config, 'r') as f:
+                self.config = json.load(f)
+                return self.config
+
+        # 4. Load template as fallback
+        template_path = get_resource_path(os.path.join('config', 'config.template.json'))
+        if os.path.exists(template_path):
+            print(f"Loading template from: {template_path}")
+            with open(template_path, 'r') as f:
+                self.config = json.load(f)
+        else:
+            # Fallback to hardcoded defaults
+            print(f"Warning: Template not found at {template_path}, using defaults")
+            self.config = self._get_default_config()
 
         return self.config
 
