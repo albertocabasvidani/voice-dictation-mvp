@@ -8,6 +8,37 @@ Voice Dictation MVP - Clone di Wispr Flow per Windows. App desktop Python che pe
 
 **Pipeline**: Audio recording → Cloud transcription API → LLM post-processing → Clipboard/Auto-paste
 
+## Project Structure
+
+```
+project-root/
+├── config/
+│   ├── config.template.json    # Template configurazione
+│   └── config.json              # Config utente (gitignored)
+├── docs/
+│   ├── BUILD.md                 # Istruzioni build/distribuzione
+│   ├── README.md                # Documentazione sviluppatore
+│   └── README_USER.txt          # Guida utente finale
+├── logs/                        # Log applicazione (auto-generati)
+├── recordings/                  # File WAV temporanei (max 10)
+├── src/
+│   ├── core/                    # Logica business principale
+│   ├── providers/               # Provider transcription/LLM
+│   │   ├── llm/
+│   │   └── transcription/
+│   └── ui/                      # Interfaccia utente
+├── tests/
+│   ├── fixtures/                # File audio/text per test
+│   └── *.py                     # Unit/integration tests
+├── build/                       # Build artifacts (gitignored)
+├── dist/                        # Eseguibili produzione (gitignored)
+├── CLAUDE.md                    # Guida Claude Code
+├── requirements.txt             # Dipendenze Python
+├── run_app.py                   # Entry point applicazione
+├── build_exe.bat                # Script build automatico
+└── VoiceDictation.spec          # Config PyInstaller
+```
+
 ## Architecture
 
 ### Multi-Provider Pattern
@@ -258,6 +289,23 @@ pyinstaller VoiceDictation.spec
 - WAV file cleanup: mantiene ultimi 10 recordings
 - Save/Cancel buttons con `height=2` per usabilità
 
+### 5. Riorganizzazione Struttura Progetto (v1.2)
+**File eliminati** (utility temporanee):
+- `output.log`, `test_output.log` - log vuoti
+- `conversazione esportata.txt` - file sviluppo
+- `list_audio_devices.py`, `test_openai_debug.py`, `test_all_providers.py` - script debug temporanei
+- `config.json.bak` - backup temporaneo
+- `run_debug.bat` - script debug
+
+**Nuova organizzazione cartelle**:
+- `config/` - configurazione centralizzata (`config.json` spostato da root)
+- `docs/` - tutta la documentazione (BUILD.md, README.md, README_USER.txt)
+- `tests/fixtures/` - file audio e trascrizioni test (wav/txt)
+- `logs/` - creata esplicitamente per log runtime
+- `recordings/` - creata esplicitamente per WAV temporanei
+
+**Compatibilità**: `src/core/config_manager.py` già supporta la ricerca di config.json in `config/` (linea 68)
+
 ## Testing Strategy
 
 **Unit tests** per ogni provider:
@@ -266,7 +314,7 @@ pyinstaller VoiceDictation.spec
 - Validate audio format conversions
 
 **Integration tests** per pipeline completa:
-- File audio test: `tests/fixtures/sample.wav`
+- File audio test: `tests/fixtures/esempio_inglese.wav`, `tests/fixtures/esempio_italiano.wav`
 - Verifica latency < 3s (target MVP)
 
 **Manual testing checklist** (in `tests/manual_test_plan.md`):
