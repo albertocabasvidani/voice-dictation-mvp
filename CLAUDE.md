@@ -31,10 +31,12 @@ Ogni provider implementa interfaccia comune:
 ### Core Components
 
 **`src/core/audio_recorder.py`**
-- Gestisce recording con `sounddevice`
-- Rileva inizio/fine tramite hotkey
-- Output: buffer audio 16kHz mono
-- **Dipendenza pesante**: usa `scipy.io.wavfile` per scrivere WAV (causa import torch → 2.7GB exe)
+- Gestisce recording con `sounddevice` in continuous stream mode
+- Usa `InputStream` con callback e queue per evitare audio stuttering
+- **Auto-stop su silenzio**: rileva silenzio (threshold=300) e ferma dopo 60s
+- **Silence detection**: traccia `last_audio_time` per monitorare inattività
+- Output: buffer audio 16kHz mono, WAV manuale con `struct` (no scipy)
+- Volume gain configurabile (0.1x-100x) con auto-calibration
 
 **`src/core/config_manager.py`**
 - Carica/salva `config/config.json`
@@ -44,6 +46,7 @@ Ogni provider implementa interfaccia comune:
 **`src/core/hotkey_manager.py`**
 - Global hotkey registration con `keyboard` library
 - Supporto combinazioni custom (ctrl+shift+key)
+- **ESC registrato** per cancellare registrazione in corso
 - Parsing configurazione hotkey da JSON
 
 **`src/core/text_processor.py`**
@@ -53,14 +56,41 @@ Ogni provider implementa interfaccia comune:
 
 **`src/ui/system_tray.py`**
 - System tray icon con `pystray`
-- Menu: Settings, Start/Stop, Exit
-- Visual feedback stato (icon change durante recording)
+- **Double-click** apre Settings (usando `default=True` in MenuItem)
+- Menu: Settings, Exit
+- Visual feedback: icon rosso durante recording, verde idle
+- **Threading**: esegue in daemon thread per non bloccare tkinter
 
 **`src/ui/settings_window.py`**
-- Tkinter window per configurazione
-- Tabs: Hotkey, Transcription, LLM, Advanced
-- Test buttons per validare API keys
+- Tkinter window per configurazione (usa `tk.Toplevel` per child windows)
+- Tabs: **Hotkey**, **Audio**, **Transcription**, **LLM**, **Advanced**
+- **Hotkey tab**: pulsante "Capture" con `pynput` per catturare combinazione tasti
+- **Audio tab**:
+  - Device selector (solo input devices)
+  - Volume gain slider (0.1x-100x, log scale)
+  - **Test Microphone (5s)**: registra 5s, analizza livelli, suggerisce gain ottimale
+- Test buttons per validare API keys (Transcription, LLM)
 - Auto-detect Ollama models (`subprocess` → `ollama list`)
+- Save/Cancel buttons con `height=2` per usabilità
+
+**`src/ui/recording_widget.py`**
+- Tkinter window on-top in angolo alto-destro
+- Stati: Recording (animazione cerchio rosso) → Transcribing → Processing
+- Metodo `update_status(title, status, stop_animation)` per aggiornare fase
+- Bordo bianco (`highlightthickness=2`) per visibilità su sfondo scuro
+- Si nasconde automaticamente al completamento o su errore
+
+**`src/main.py`**
+- **Threading architecture**:
+  - Main thread: tkinter event loop (hidden root window)
+  - Daemon thread: pystray system tray
+  - Background threads: recording loop, audio processing
+- **Recording flow**:
+  1. Hotkey press → `_start_recording()` → mostra widget
+  2. Loop `_record_loop()` con silence check (60s timeout)
+  3. ESC → `_cancel_recording()` (scarta audio)
+  4. Stop → `_stop_recording()` → `_process_audio()` con status updates
+- **WAV cleanup**: mantiene ultimi 10 file in `recordings/` folder
 
 ### Configuration System
 
@@ -68,6 +98,10 @@ Ogni provider implementa interfaccia comune:
 
 ```json
 {
+  "hotkey": {
+    "modifiers": ["ctrl", "shift"],
+    "key": "space"
+  },
   "transcription": {
     "provider": "groq|openai|deepgram",
     "api_key_encrypted": "BASE64_DPAPI_ENCRYPTED"
@@ -77,6 +111,11 @@ Ogni provider implementa interfaccia comune:
     "model": "llama3.2:3b|gpt-4o-mini|llama-3.1-8b-instant",
     "api_key_encrypted": "BASE64_DPAPI_ENCRYPTED",
     "ollama_url": "http://localhost:11434"
+  },
+  "audio": {
+    "device_index": -1,
+    "sample_rate": 16000,
+    "volume_gain": 1.0
   }
 }
 ```
@@ -85,19 +124,48 @@ Ogni provider implementa interfaccia comune:
 
 ### LLM Post-Processing Prompt
 
-Sistema prompt per tutti i provider LLM (in `src/core/text_processor.py`):
+Sistema prompt per tutti i provider LLM (in `src/providers/llm/base.py` - `LLMProvider.SYSTEM_PROMPT`):
 
 ```python
 SYSTEM_PROMPT = """You are a text formatter. Clean up speech transcriptions by:
+
+BASIC FORMATTING:
 - Removing filler words (um, uh, eh, allora, cioè, tipo)
 - Adding proper punctuation (periods, commas, question marks)
 - Fixing capitalization
 - Resolving self-corrections (e.g., "tomorrow, no Friday" → "Friday")
-- Preserving the original meaning and tone
-Output ONLY the cleaned text, nothing else. No explanations."""
+
+STRUCTURE RECOGNITION (only when obvious):
+- **Lists**: When the user says phrases like "first", "second", "next", "also", "another", "punto uno", "punto due", or lists items, format as:
+  • Bullet points for unordered items
+  • Numbered list (1., 2., 3.) for sequential items
+- **Paragraphs**: Add line breaks between distinct topics or logical sections
+- **Code**: When the user mentions code, programming, or uses technical terms like "function", "class", "variable", format it in backticks or code blocks
+- **Titles/Headings**: When the user explicitly says "title", "heading", "titolo", or emphasizes a section name, put it in quotes
+
+EXAMPLES:
+Input: "first point is the API then second the database and third the frontend"
+Output: 1. API
+2. Database
+3. Frontend
+
+Input: "reminder buy milk eggs and bread"
+Output: Reminder:
+• Buy milk
+• Eggs
+• Bread
+
+Input: "ho fatto un test e funziona"
+Output: Ho fatto un test e funziona.
+
+CRITICAL: Return ONLY the user's words, cleaned and formatted. NEVER add notes, explanations, comments, or meta-text like "Nota:" or "Note:". If there's nothing to format structurally, just clean the text. DO NOT add any text that the user did not say."""
 ```
 
-Questo prompt è **critico** per la qualità output - modifiche devono mantenere stesse istruzioni.
+Questo prompt è **critico** per la qualità output:
+- **Basic formatting** sempre applicato (rimozione filler, punteggiatura, capitalizzazione)
+- **Structure recognition** solo quando ovvio (liste, codice, titoli)
+- **CRITICAL rule**: LLM NON deve mai aggiungere note/spiegazioni proprie
+- Modifiche devono preservare queste istruzioni o la qualità decade
 
 ## Development Commands
 
@@ -143,10 +211,52 @@ pyinstaller VoiceDictation.spec
 - Output: `dist/VoiceDictation/` (77MB totale)
   - `VoiceDictation.exe` (9.5MB) - bootloader
   - `_internal/` - librerie Python, DLLs, config
-- Dipendenze: sounddevice, keyboard, pystray, pynput, pyautogui, numpy, PIL, tkinter
+- Dipendenze: sounddevice, keyboard, pystray, pynput, pyautogui, numpy, PIL, tkinter, win32crypt
 - **scipy rimossa**: sostituita con WAV writing manuale in `audio_recorder.py` usando `struct`
-- Build time: ~100 secondi
+- Build time: ~90-100 secondi
 - Distribuzione: zippare intera folder `VoiceDictation/`
+
+## Recent Features (v1.1)
+
+### 1. Calibrazione Microfono Automatica
+**File**: `src/ui/settings_window.py` (linee 89-162, 239-295)
+- Pulsante "Test Microphone (5s)" nella tab Audio
+- Registra 5 secondi di audio, analizza livelli (avg/peak)
+- Calcola gain suggerito basato su target_avg=2000
+- Applica automaticamente al slider volume gain
+- Threading per non bloccare UI durante test
+
+### 2. Auto-Stop su Silenzio
+**File**: `src/core/audio_recorder.py` (linee 44-86), `src/main.py` (linee 156-181)
+- Silenzio rilevato con `threshold=300` (audio_level < 300)
+- Traccia `last_audio_time` aggiornato in audio callback
+- Loop registrazione controlla ogni 0.1s con `get_silence_duration()`
+- Se silenzio > 60s → auto-stop e processa audio
+- Previene registrazioni infinite se utente dimentica di stoppare
+
+### 3. Personalizzazione Hotkey con Cattura
+**File**: `src/ui/settings_window.py` (linee 164-250)
+- Pulsante "Capture" nella tab Hotkey
+- Usa `pynput.keyboard.Listener` per catturare combinazione tasti
+- Rileva modifiers (ctrl, shift, alt, win) e key premuta
+- Aggiorna entry con formato "ctrl+shift+key"
+- Threading per non bloccare UI durante cattura
+
+### 4. Formattazione Automatica Avanzata
+**File**: `src/providers/llm/base.py` (linee 7-46)
+- Prompt LLM potenziato con structure recognition
+- Riconosce liste (bullet/numbered) quando utente dice "first", "second", etc.
+- Identifica paragrafi (line breaks tra topic diversi)
+- Formatta codice con backticks quando menziona "function", "class", etc.
+- Titoli tra virgolette quando utente dice "title", "titolo"
+- **CRITICAL rule**: LLM non deve mai aggiungere note proprie
+
+**Altri Fix v1.1**:
+- Sistema threading: tkinter main thread, pystray daemon thread (fix RuntimeError)
+- Recording widget persiste durante transcription/processing con status updates
+- Continuous audio stream con queue (fix stuttering)
+- WAV file cleanup: mantiene ultimi 10 recordings
+- Save/Cancel buttons con `height=2` per usabilità
 
 ## Testing Strategy
 
