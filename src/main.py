@@ -239,15 +239,28 @@ class VoiceDictationApp:
     def _process_audio(self, audio_data: bytes):
         """Process audio data through pipeline"""
         try:
-            # Save WAV for debugging
+            # Save WAV for debugging (keep only last 10 files)
             import datetime
+            import glob
             recordings_dir = os.path.join(os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__)), 'recordings')
             os.makedirs(recordings_dir, exist_ok=True)
+
+            # Save new recording
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             wav_path = os.path.join(recordings_dir, f"recording_{timestamp}.wav")
             with open(wav_path, 'wb') as f:
                 f.write(audio_data)
             print(f"Audio saved to: {wav_path}")
+
+            # Keep only last 10 recordings
+            wav_files = sorted(glob.glob(os.path.join(recordings_dir, "recording_*.wav")))
+            if len(wav_files) > 10:
+                for old_file in wav_files[:-10]:  # Keep last 10, delete older ones
+                    try:
+                        os.remove(old_file)
+                        print(f"Deleted old recording: {old_file}")
+                    except Exception as e:
+                        print(f"Could not delete {old_file}: {e}")
 
             # Update widget during processing
             def status_callback(status: str):
