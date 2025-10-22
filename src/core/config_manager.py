@@ -30,6 +30,7 @@ class ConfigManager:
     def __init__(self, config_path: str = None):
         self.config_path = config_path or self.DEFAULT_CONFIG_PATH
         self.config = {}
+        self.loaded_from = None  # Track where config was loaded from
         self._ensure_config_dir()
 
     def _ensure_config_dir(self):
@@ -51,6 +52,8 @@ class ConfigManager:
             print(f"Loading config from: {local_config}")
             with open(local_config, 'r') as f:
                 self.config = json.load(f)
+                self.loaded_from = local_config
+                self.config_path = local_config  # Save to same location
                 return self.config
 
         # 2. Try AppData folder (default Windows location)
@@ -58,6 +61,7 @@ class ConfigManager:
             print(f"Loading config from: {self.config_path}")
             with open(self.config_path, 'r') as f:
                 self.config = json.load(f)
+                self.loaded_from = self.config_path
                 return self.config
 
         # 3. Try project config folder (development)
@@ -66,6 +70,8 @@ class ConfigManager:
             print(f"Loading config from: {project_config}")
             with open(project_config, 'r') as f:
                 self.config = json.load(f)
+                self.loaded_from = project_config
+                self.config_path = project_config  # Save to same location
                 return self.config
 
         # 4. Load template as fallback
@@ -86,8 +92,10 @@ class ConfigManager:
         if config:
             self.config = config
 
+        print(f"Saving config to: {self.config_path}")
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=2)
+        print(f"Config saved successfully")
 
     def encrypt_api_key(self, api_key: str) -> str:
         """Encrypt API key using Windows DPAPI"""
@@ -164,9 +172,9 @@ class ConfigManager:
                 }
             },
             "llm": {
-                "provider": "ollama",
+                "provider": "groq",
                 "api_key_encrypted": "",
-                "model": "llama3.2:3b",
+                "model": "llama-3.1-8b-instant",
                 "ollama_url": "http://localhost:11434",
                 "temperature": 0.3,
                 "max_tokens": 500

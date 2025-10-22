@@ -115,7 +115,7 @@ class SettingsWindow:
 
         # Provider selection
         tk.Label(frame, text="Provider:").pack(anchor='w', padx=20)
-        self.llm_provider_var = tk.StringVar(value=self.config.get('llm', {}).get('provider', 'ollama'))
+        self.llm_provider_var = tk.StringVar(value=self.config.get('llm', {}).get('provider', 'groq'))
         self.llm_provider_var.trace('w', self._on_llm_provider_change)
 
         providers_frame = tk.Frame(frame)
@@ -127,7 +127,7 @@ class SettingsWindow:
 
         # Model selection
         tk.Label(frame, text="Model:").pack(anchor='w', padx=20, pady=(10, 0))
-        self.llm_model_var = tk.StringVar(value=self.config.get('llm', {}).get('model', 'llama3.2:3b'))
+        self.llm_model_var = tk.StringVar(value=self.config.get('llm', {}).get('model', 'llama-3.1-8b-instant'))
         self.llm_model_combo = ttk.Combobox(frame, textvariable=self.llm_model_var, width=47, state='readonly')
         self.llm_model_combo.pack(padx=20, pady=5)
         self._update_llm_models()

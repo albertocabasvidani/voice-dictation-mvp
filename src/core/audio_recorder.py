@@ -13,6 +13,19 @@ class AudioRecorder:
         self.recording = []
         self.is_recording = False
 
+        # Log device info
+        try:
+            devices = sd.query_devices()
+            if self.device_index is None:
+                default_device = sd.default.device[0]
+                device_info = devices[default_device]
+                print(f"Audio device: DEFAULT - {device_info['name']} (index: {default_device})")
+            else:
+                device_info = devices[self.device_index]
+                print(f"Audio device: {device_info['name']} (index: {self.device_index})")
+        except Exception as e:
+            print(f"Warning: Could not get device info: {e}")
+
     def start_recording(self):
         """Start recording audio"""
         self.recording = []
@@ -28,8 +41,14 @@ class AudioRecorder:
         # Convert list of chunks to single array
         audio_data = np.concatenate(self.recording, axis=0)
 
+        # Log audio info
+        duration = len(audio_data) / self.sample_rate
+        print(f"Audio recorded: {duration:.2f}s ({len(audio_data)} samples at {self.sample_rate}Hz)")
+
         # Convert to WAV bytes
-        return self._to_wav_bytes(audio_data)
+        wav_bytes = self._to_wav_bytes(audio_data)
+        print(f"WAV file size: {len(wav_bytes)} bytes")
+        return wav_bytes
 
     def record_chunk(self, duration: float = 0.1):
         """Record a small chunk of audio (called repeatedly during recording)"""
