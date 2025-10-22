@@ -70,18 +70,18 @@ class VoiceDictationApp:
                 sample_rate=audio_config.get('sample_rate', 16000),
                 device_index=audio_config.get('device_index', -1)
             )
-            print("  ✓ Audio recorder loaded")
+            print("  [OK] Audio recorder loaded")
 
             # Text processor
             print("- Loading text processor...")
             self.text_processor = TextProcessor(self.config)
-            print("  ✓ Text processor loaded")
+            print("  [OK] Text processor loaded")
 
             # Hotkey manager
             print("- Loading hotkey manager...")
             self.hotkey_manager = HotkeyManager()
             self._register_hotkey()
-            print("  ✓ Hotkey manager loaded")
+            print("  [OK] Hotkey manager loaded")
 
             # System tray
             print("- Loading system tray...")
@@ -89,13 +89,13 @@ class VoiceDictationApp:
                 on_settings=self._show_settings,
                 on_exit=self._exit
             )
-            print("  ✓ System tray loaded")
+            print("  [OK] System tray loaded")
 
             self.is_running = True
-            print("\n✓ Initialization complete!\n")
+            print("\n[OK] Initialization complete!\n")
 
         except Exception as e:
-            print(f"\n✗ Initialization failed at: {e}")
+            print(f"\n[ERROR] Initialization failed at: {e}")
             raise
 
     def _register_hotkey(self):

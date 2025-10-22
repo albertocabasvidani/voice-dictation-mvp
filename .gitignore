@@ -52,3 +52,5 @@ htmlcov/
 build/
 dist/
 *.exe
+config.json
+config.json.bak
