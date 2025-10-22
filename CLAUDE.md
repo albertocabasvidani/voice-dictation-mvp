@@ -2,6 +2,40 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 📑 Table of Contents
+
+### Windows Desktop Implementation
+- [Project Overview](#project-overview)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+  - [Multi-Provider Pattern](#multi-provider-pattern)
+  - [Core Components](#core-components)
+  - [Configuration System](#configuration-system)
+  - [LLM Post-Processing Prompt](#llm-post-processing-prompt)
+- [Development Commands](#development-commands)
+- [Recent Features (v1.1)](#recent-features-v11)
+- [Testing Strategy](#testing-strategy)
+- [Common Development Tasks](#common-development-tasks)
+- [Performance Targets](#performance-targets)
+- [Security Notes](#security-notes)
+- [Common Issues](#common-issues)
+
+### Android Mobile Implementation
+- [Android Version (MVP)](#android-version-mvp)
+  - [Project Structure Android](#project-structure-android)
+  - [Key Differences from Windows](#key-differences-from-windows)
+  - [Architecture Android](#architecture-android)
+  - [Android MVP Limitations](#android-mvp-limitations)
+  - [Development Android](#development-android)
+  - [Configuration Android](#configuration-android)
+  - [Common Issues Android](#common-issues-android)
+  - [Testing Android](#testing-android)
+  - [Performance Targets Android](#performance-targets-android)
+  - [Documentation Android](#documentation-android)
+  - [Future Android Features](#future-android-features)
+
+---
+
 ## Project Overview
 
 Voice Dictation MVP - Clone di Wispr Flow per Windows. App desktop Python che permette dettatura vocale con trascrizione intelligente e auto-formattazione tramite LLM.
@@ -408,3 +442,179 @@ Check API key validity: usa Test button in Settings window.
 - Fallback automatico: testo sempre copiato in clipboard
 - `auto_paste: false` in config disabilita Ctrl+V automatico
 - Alcune app bloccano SendInput - usa Ctrl+V manuale
+
+---
+
+## Android Version (MVP)
+
+Port Android dell'applicazione in `mobile/` directory. Stesso concetto, implementazione nativa Android.
+
+### Project Structure Android
+
+```
+mobile/
+├── app/src/main/
+│   ├── java/com/voicedictation/
+│   │   ├── service/
+│   │   │   ├── VoiceAccessibilityService.kt    # Accessibility service core
+│   │   │   └── AudioRecorder.kt                # Audio recording (AudioRecord API)
+│   │   ├── provider/
+│   │   │   ├── GroqWhisperClient.kt            # Transcription (Retrofit/OkHttp)
+│   │   │   └── GroqLLMClient.kt                # LLM post-processing
+│   │   ├── ui/
+│   │   │   └── MainActivity.kt                 # Settings activity
+│   │   └── util/
+│   │       ├── ConfigManager.kt                # EncryptedSharedPreferences
+│   │       └── TextProcessor.kt                # Pipeline orchestration
+│   ├── res/                                    # Android resources (layouts, strings)
+│   └── AndroidManifest.xml                     # App manifest + permissions
+├── build.gradle.kts                            # Gradle build config
+├── README.md                                   # Android-specific documentation
+└── TESTING.md                                  # Manual testing checklist
+```
+
+### Key Differences from Windows
+
+**Activation**:
+- Windows: Global hotkey (ctrl+shift+space)
+- Android: Volume Up + Volume Down gesture (via Accessibility Service)
+
+**Permissions**:
+- Windows: Admin for global hotkey
+- Android: Accessibility Service (must be enabled manually in Settings)
+
+**Storage**:
+- Windows: DPAPI encryption (tied to Windows user)
+- Android: EncryptedSharedPreferences (tied to device + app signature)
+
+**UI**:
+- Windows: System tray + Tkinter settings window
+- Android: Main Activity (Settings) + Foreground service notification
+
+**Audio**:
+- Windows: sounddevice library
+- Android: AudioRecord API (native)
+
+### Architecture Android
+
+Stessa pipeline, componenti Android-nativi:
+
+```
+Gesture (Vol Up+Down)
+    ↓
+VoiceAccessibilityService.onKeyEvent()
+    ↓
+AudioRecorder.startRecording() [AudioRecord API]
+    ↓
+[User speaks...]
+    ↓
+Release gesture or silence timeout
+    ↓
+AudioRecorder.stopRecording() → WAV bytes
+    ↓
+TextProcessor.processAudio()
+    ├─→ GroqWhisperClient.transcribe() [Retrofit]
+    └─→ GroqLLMClient.process() [Retrofit]
+    ↓
+ClipboardManager + AccessibilityService.PASTE
+```
+
+### Android MVP Limitations
+
+- **Solo Groq**: no OpenAI/Deepgram (facile aggiungere dopo)
+- **Gesture fisso**: no configurazione trigger
+- **No calibration UI**: gain audio fisso
+- **No floating widget**: solo notification status
+- **Testing parziale**: unit tests su WSL2, testing completo su device fisico
+
+### Development Android
+
+**Setup**:
+```bash
+cd mobile/
+# Open in Android Studio
+# Sync Gradle
+```
+
+**Build APK**:
+```bash
+./gradlew assembleDebug
+# Output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+**Install**:
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+**Run Tests**:
+```bash
+# Unit tests (su WSL2/PC)
+./gradlew test
+
+# Instrumented tests (richiede device connesso)
+./gradlew connectedAndroidTest
+```
+
+### Configuration Android
+
+```kotlin
+// ConfigManager (EncryptedSharedPreferences)
+configManager.setGroqApiKey("gsk_...")
+configManager.setVolumeGain(2.0f)
+configManager.setSilenceTimeout(30000L)
+```
+
+### Common Issues Android
+
+**"Service not enabled"**:
+- Settings > Accessibility > Voice Dictation > Enable
+
+**"No API key"**:
+- Open app > Enter Groq API key > Save
+
+**Gesture not working**:
+- Verify Accessibility Service enabled
+- Press Volume Up and Down SIMULTANEOUSLY
+- Some devices have hardware conflicts
+
+**Auto-paste not working**:
+- Accessibility Service required
+- Banking/password apps may block for security
+- Fallback: text always in clipboard
+
+### Testing Android
+
+See `mobile/TESTING.md` for complete manual testing checklist.
+
+**Quick smoke test**:
+1. Install APK
+2. Enable Accessibility Service
+3. Enter API key
+4. Test microphone (5s)
+5. Test transcription
+6. Open WhatsApp
+7. Volume Up+Down → speak "test" → release
+8. Verify "Test." pasted
+
+### Performance Targets Android
+
+Same as Windows:
+- Latency <3s (Groq is fast on mobile too)
+- Memory <100MB (excluding Android system)
+- Battery minimal (service only active during dictation)
+
+### Documentation Android
+
+- `mobile/README.md` - Complete setup and usage guide
+- `mobile/TESTING.md` - Manual testing checklist
+- `mobile/app/build.gradle.kts` - Dependencies and build config
+
+### Future Android Features
+
+- Multi-provider support (OpenAI, Deepgram)
+- Configurable gesture/trigger
+- Audio calibration UI
+- Floating widget visual feedback
+- Custom LLM prompts
+- Export/import settings

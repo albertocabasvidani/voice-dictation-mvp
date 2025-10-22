@@ -1,12 +1,18 @@
-# Python
+# Erroneous directories
+clone Wispr Flow Android/
+
+# Python (Desktop)
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
+desktop/build/
+desktop/dist/
+desktop/venv/
+desktop/env/
+desktop/ENV/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -20,18 +26,14 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# Configuration (contains encrypted API keys)
-config/config.json
-dist/config/config.json
+# Configuration (Desktop - contains encrypted API keys)
+desktop/config/config.json
+desktop/dist/config/config.json
 config_backup.json
-*.log
-.env
-.env.bak
+desktop/*.log
+desktop/logs/*.log
+desktop/.env
+desktop/.env.bak
 
 # IDE
 .vscode/
@@ -48,14 +50,28 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Build (keep .spec for distribution)
-build/
-dist/
-*.exe
-config.json
-config.json.bak
+# Build (Desktop)
+desktop/*.exe
+desktop/config.json
+desktop/config.json.bak
 
-# Recordings (debug)
-recordings/
-*.wav
-!tests/fixtures/*.wav
+# Recordings (Desktop - debug)
+desktop/recordings/
+desktop/*.wav
+!desktop/tests/fixtures/*.wav
+
+# Mobile (Android)
+mobile/.gradle/
+mobile/.idea/
+mobile/local.properties
+mobile/build/
+mobile/app/build/
+mobile/*.iml
+mobile/.DS_Store
+mobile/captures/
+mobile/.externalNativeBuild
+mobile/.cxx
+mobile/*.apk
+mobile/*.aab
+mobile/*.jks
+mobile/*.keystore
