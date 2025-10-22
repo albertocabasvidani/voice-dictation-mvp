@@ -9,6 +9,7 @@ import os
 import sys
 import threading
 import time
+import tkinter as tk
 
 from src.core.config_manager import ConfigManager
 from src.core.audio_recorder import AudioRecorder
@@ -57,6 +58,7 @@ class VoiceDictationApp:
         self.text_processor = None
         self.system_tray = None
         self.recording_widget = None
+        self.root = None  # Tk root for settings window
 
         self.is_running = False
         self.is_recording = False
@@ -303,7 +305,7 @@ class VoiceDictationApp:
 
             print("Configuration reloaded")
 
-        settings = SettingsWindow(self.config, self.config_manager, on_save=on_save)
+        settings = SettingsWindow(self.config, self.config_manager, on_save=on_save, root=self.root)
         settings.show()
 
     def _exit(self):
@@ -325,11 +327,19 @@ class VoiceDictationApp:
         print(f"Transcription: {self.config['transcription']['provider']}")
         print(f"LLM: {self.config['llm']['provider']} ({self.config['llm']['model']})")
         print("\nPress hotkey to start/stop recording")
-        print("Right-click system tray icon for settings")
+        print("Click system tray icon for settings")
         print("="*50 + "\n")
 
-        # Run system tray (blocking)
-        self.system_tray.start()
+        # Create hidden root window for tkinter
+        self.root = tk.Tk()
+        self.root.withdraw()  # Hide the root window
+
+        # Run system tray in separate thread
+        tray_thread = threading.Thread(target=self.system_tray.start, daemon=True)
+        tray_thread.start()
+
+        # Run tkinter main loop (this keeps the app running)
+        self.root.mainloop()
 
 
 def main():

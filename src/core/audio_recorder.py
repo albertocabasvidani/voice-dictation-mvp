@@ -2,17 +2,20 @@ import sounddevice as sd
 import numpy as np
 import io
 import struct
+import queue
 
 
 class AudioRecorder:
     """Records audio from microphone"""
 
-    def __init__(self, sample_rate: int = 16000, device_index: int = -1, max_gain: float = 1000.0):
+    def __init__(self, sample_rate: int = 16000, device_index: int = -1, max_gain: float = 1.0):
         self.sample_rate = sample_rate
         self.device_index = device_index if device_index >= 0 else None
-        self.max_gain = max_gain
+        self.volume_multiplier = max_gain  # Direct volume multiplier (1.0 = no change)
         self.recording = []
         self.is_recording = False
+        self.stream = None
+        self.audio_queue = queue.Queue()
 
         # Log ALL devices and select best one
         try:
@@ -35,14 +38,56 @@ class AudioRecorder:
         except Exception as e:
             print(f"Warning: Could not get device info: {e}")
 
+    def _audio_callback(self, indata, frames, time, status):
+        """Callback for continuous audio stream"""
+        if status:
+            print(f"Audio callback status: {status}")
+
+        # Put audio data in queue (copy to avoid issues)
+        self.audio_queue.put(indata.copy())
+
     def start_recording(self):
         """Start recording audio"""
         self.recording = []
         self.is_recording = True
 
+        # Clear queue
+        while not self.audio_queue.empty():
+            try:
+                self.audio_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        # Start continuous stream
+        self.stream = sd.InputStream(
+            samplerate=self.sample_rate,
+            channels=1,
+            dtype='int16',
+            device=self.device_index,
+            callback=self._audio_callback,
+            blocksize=1600  # ~0.1 seconds at 16000 Hz
+        )
+        self.stream.start()
+        print("Audio stream started")
+
     def stop_recording(self) -> bytes:
         """Stop recording and return audio data as WAV bytes"""
         self.is_recording = False
+
+        # Stop stream
+        if self.stream:
+            self.stream.stop()
+            self.stream.close()
+            self.stream = None
+            print("Audio stream stopped")
+
+        # Collect any remaining data from queue
+        while not self.audio_queue.empty():
+            try:
+                chunk = self.audio_queue.get_nowait()
+                self.recording.append(chunk)
+            except queue.Empty:
+                break
 
         if not self.recording:
             raise Exception("No audio recorded")
@@ -55,20 +100,24 @@ class AudioRecorder:
         avg_level = np.abs(audio_data).mean()
         max_level = np.abs(audio_data).max()
         print(f"Audio recorded: {duration:.2f}s ({len(audio_data)} samples at {self.sample_rate}Hz)")
-        print(f"Audio levels - Average: {avg_level:.1f}, Peak: {max_level:.1f} (max possible: 32767)")
+        print(f"Audio levels BEFORE gain - Average: {avg_level:.1f}, Peak: {max_level:.1f} (max: 32767)")
 
-        # Amplify if signal is too weak
-        if avg_level < 100 and max_level < 1000:
-            print(f"WARNING: Audio level very low ({avg_level:.1f})")
-            print("Tip: Speak VERY close to the microphone")
-
-            # Apply aggressive gain (amplify up to max_gain for very weak signals)
-            target_level = 20000.0  # Target average level
-            gain = min(self.max_gain, target_level / (avg_level + 1))  # +1 to avoid division by zero
-            audio_data = np.clip(audio_data * gain, -32767, 32767).astype(np.int16)
+        # Apply volume multiplier from settings (if != 1.0)
+        if self.volume_multiplier != 1.0:
+            print(f"Applying volume multiplier: {self.volume_multiplier}x")
+            audio_data = np.clip(audio_data * self.volume_multiplier, -32767, 32767).astype(np.int16)
             new_avg = np.abs(audio_data).mean()
             new_peak = np.abs(audio_data).max()
-            print(f"Applied {gain:.1f}x gain: Average {new_avg:.1f}, Peak {new_peak:.1f}")
+            print(f"Audio levels AFTER gain - Average: {new_avg:.1f}, Peak: {new_peak:.1f}")
+
+            # Warning if audio is clipping
+            if new_peak >= 32767:
+                print("WARNING: Audio is clipping! Reduce volume multiplier in settings.")
+
+        # Warning if signal is very low even after amplification
+        final_avg = np.abs(audio_data).mean()
+        if final_avg < 500:
+            print(f"WARNING: Audio level very low ({final_avg:.1f}) - increase volume multiplier in settings")
 
         # Convert to WAV bytes
         wav_bytes = self._to_wav_bytes(audio_data)
@@ -76,25 +125,26 @@ class AudioRecorder:
         return wav_bytes
 
     def record_chunk(self, duration: float = 0.1):
-        """Record a small chunk of audio (called repeatedly during recording)"""
+        """Collect audio chunks from queue (called repeatedly during recording)"""
         if not self.is_recording:
             return
 
         try:
-            chunk = sd.rec(
-                int(duration * self.sample_rate),
-                samplerate=self.sample_rate,
-                channels=1,
-                dtype='int16',
-                device=self.device_index
-            )
-            sd.wait()
-            self.recording.append(chunk)
+            # Collect all available chunks from queue
+            collected_any = False
+            while not self.audio_queue.empty():
+                try:
+                    chunk = self.audio_queue.get_nowait()
+                    self.recording.append(chunk)
+                    collected_any = True
+                except queue.Empty:
+                    break
 
-            # Log audio level every ~1 second
-            if len(self.recording) % 10 == 0:
-                volume = np.abs(chunk).mean()
-                print(f"Audio level: {volume:.1f} (max: 32767)")
+            # Log audio level periodically
+            if collected_any and len(self.recording) % 10 == 0:
+                last_chunk = self.recording[-1]
+                volume = np.abs(last_chunk).mean()
+                print(f"Audio level: {volume:.1f} (chunks: {len(self.recording)})")
 
         except Exception as e:
             raise Exception(f"Audio recording failed: {str(e)}")

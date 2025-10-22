@@ -13,10 +13,11 @@ class SettingsWindow:
         'groq': ['llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it']
     }
 
-    def __init__(self, config: dict, config_manager, on_save: Callable = None):
+    def __init__(self, config: dict, config_manager, on_save: Callable = None, root=None):
         self.config = config.copy()
         self.config_manager = config_manager
         self.on_save = on_save
+        self.root = root
         self.window = None
 
     def show(self):
@@ -25,7 +26,8 @@ class SettingsWindow:
             self.window.lift()
             return
 
-        self.window = tk.Tk()
+        # Use Toplevel if root provided, otherwise create new Tk
+        self.window = tk.Toplevel(self.root) if self.root else tk.Tk()
         self.window.title("Voice Dictation Settings")
         self.window.geometry("600x500")
 
@@ -117,7 +119,7 @@ class SettingsWindow:
         tk.Label(frame, text="Volume Amplification:", font=('Arial', 10, 'bold')).pack(anchor='w', padx=20, pady=(20, 5))
         tk.Label(
             frame,
-            text="Increase if your microphone is too quiet (not recommended for normal mics)",
+            text="Increase if your microphone is too quiet (1.0 = normal, 2.0 = double volume)",
             fg="gray",
             font=('Arial', 8)
         ).pack(anchor='w', padx=20)
@@ -126,15 +128,17 @@ class SettingsWindow:
         gain_frame = tk.Frame(frame)
         gain_frame.pack(fill='x', padx=20, pady=10)
 
-        tk.Label(gain_frame, text="1x").pack(side='left')
+        tk.Label(gain_frame, text="0.1x").pack(side='left')
 
-        current_gain = self.config.get('audio', {}).get('volume_gain', 1000)
-        self.gain_var = tk.IntVar(value=current_gain)
+        current_gain = self.config.get('audio', {}).get('volume_gain', 1.0)
+        # Use DoubleVar for decimal values
+        self.gain_var = tk.DoubleVar(value=current_gain)
 
         self.gain_slider = tk.Scale(
             gain_frame,
-            from_=1,
-            to=100000,
+            from_=0.1,
+            to=100.0,
+            resolution=0.1,
             orient='horizontal',
             variable=self.gain_var,
             command=self._update_gain_label,
@@ -142,15 +146,15 @@ class SettingsWindow:
         )
         self.gain_slider.pack(side='left', padx=10)
 
-        tk.Label(gain_frame, text="100000x").pack(side='left')
+        tk.Label(gain_frame, text="100x").pack(side='left')
 
         # Current gain label
-        self.gain_label = tk.Label(frame, text=f"Current: {current_gain}x", font=('Arial', 10, 'bold'))
+        self.gain_label = tk.Label(frame, text=f"Current: {current_gain:.1f}x", font=('Arial', 10, 'bold'))
         self.gain_label.pack(pady=5)
 
         tk.Label(
             frame,
-            text="Note: Higher values amplify weak signals but also amplify noise.\nFor best results, increase Windows microphone level first.",
+            text="Note: Values > 10 amplify noise. Start with 1-5x.\nFor better results, increase Windows microphone level first.",
             fg="gray",
             font=('Arial', 8),
             justify='center'
@@ -158,7 +162,11 @@ class SettingsWindow:
 
     def _update_gain_label(self, value):
         """Update gain label when slider moves"""
-        self.gain_label.config(text=f"Current: {value}x")
+        try:
+            val = float(value)
+            self.gain_label.config(text=f"Current: {val:.1f}x")
+        except:
+            self.gain_label.config(text=f"Current: {value}x")
 
     def _create_transcription_tab(self, notebook):
         """Create transcription provider configuration tab"""

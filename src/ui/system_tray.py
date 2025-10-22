@@ -38,7 +38,8 @@ class SystemTray:
         return pystray.Menu(
             pystray.MenuItem(
                 "Settings",
-                lambda: self.on_settings() if self.on_settings else None
+                self._open_settings,
+                default=True  # Make it the default action
             ),
             pystray.MenuItem(
                 "Exit",
@@ -46,22 +47,22 @@ class SystemTray:
             )
         )
 
+    def _open_settings(self, icon=None, item=None):
+        """Open settings window (safe wrapper)"""
+        if self.on_settings:
+            try:
+                self.on_settings()
+            except Exception as e:
+                print(f"Error opening settings: {e}")
+
     def start(self):
         """Start system tray icon"""
-        # Define default action (double-click)
-        def default_action(icon, item):
-            if self.on_settings:
-                self.on_settings()
-
         self.icon = pystray.Icon(
             "voice_dictation",
             self.create_icon("green"),
-            "Voice Dictation",
+            "Voice Dictation - Click for settings",
             self.create_menu()
         )
-
-        # Set default action (triggered on left click)
-        self.icon.default_action = default_action
 
         # Run in blocking mode
         self.icon.run()
