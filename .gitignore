@@ -54,3 +54,7 @@ dist/
 *.exe
 config.json
 config.json.bak
+
+# Recordings (debug)
+recordings/
+*.wav

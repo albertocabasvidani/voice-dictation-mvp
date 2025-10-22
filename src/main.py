@@ -180,6 +180,16 @@ class VoiceDictationApp:
     def _process_audio(self, audio_data: bytes):
         """Process audio data through pipeline"""
         try:
+            # Save WAV for debugging
+            import datetime
+            recordings_dir = os.path.join(os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__)), 'recordings')
+            os.makedirs(recordings_dir, exist_ok=True)
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            wav_path = os.path.join(recordings_dir, f"recording_{timestamp}.wav")
+            with open(wav_path, 'wb') as f:
+                f.write(audio_data)
+            print(f"Audio saved to: {wav_path}")
+
             def status_callback(status: str):
                 self.system_tray.set_status(status)
 

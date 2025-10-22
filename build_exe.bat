@@ -23,8 +23,12 @@ if errorlevel 1 (
 
 echo.
 echo Step 2: Preserving config.json if exists...
-if exist dist\config\config.json (
-    echo Config found, backing up...
+if exist dist\VoiceDictation\config.json (
+    echo Config found in VoiceDictation folder, backing up...
+    copy dist\VoiceDictation\config.json config_backup.json >nul
+    set CONFIG_BACKUP=1
+) else if exist dist\config\config.json (
+    echo Config found in config folder, backing up...
     copy dist\config\config.json config_backup.json >nul
     set CONFIG_BACKUP=1
 ) else (
@@ -43,8 +47,8 @@ if errorlevel 1 (
     echo ERROR: Build failed
     if %CONFIG_BACKUP%==1 (
         echo Restoring config backup...
-        mkdir dist\config 2>nul
-        copy config_backup.json dist\config\config.json >nul
+        mkdir dist\VoiceDictation 2>nul
+        copy config_backup.json dist\VoiceDictation\config.json >nul
         del config_backup.json
     )
     pause
@@ -55,13 +59,12 @@ echo.
 echo Step 5: Restoring config.json if backed up...
 if %CONFIG_BACKUP%==1 (
     echo Restoring your config...
-    mkdir dist\config 2>nul
-    copy config_backup.json dist\config\config.json >nul
+    copy config_backup.json dist\VoiceDictation\config.json >nul
     del config_backup.json
     echo Config restored!
 ) else (
     echo No previous config found
-    echo You need to create dist\config\config.json
+    echo You need to copy config.json to dist\VoiceDictation\
 )
 
 echo.
