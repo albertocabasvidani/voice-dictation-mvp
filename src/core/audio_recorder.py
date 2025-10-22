@@ -7,9 +7,10 @@ import struct
 class AudioRecorder:
     """Records audio from microphone"""
 
-    def __init__(self, sample_rate: int = 16000, device_index: int = -1):
+    def __init__(self, sample_rate: int = 16000, device_index: int = -1, max_gain: float = 1000.0):
         self.sample_rate = sample_rate
         self.device_index = device_index if device_index >= 0 else None
+        self.max_gain = max_gain
         self.recording = []
         self.is_recording = False
 
@@ -61,9 +62,9 @@ class AudioRecorder:
             print(f"WARNING: Audio level very low ({avg_level:.1f})")
             print("Tip: Speak VERY close to the microphone")
 
-            # Apply aggressive gain (amplify up to 1000x for very weak signals)
+            # Apply aggressive gain (amplify up to max_gain for very weak signals)
             target_level = 20000.0  # Target average level
-            gain = min(1000.0, target_level / (avg_level + 1))  # +1 to avoid division by zero
+            gain = min(self.max_gain, target_level / (avg_level + 1))  # +1 to avoid division by zero
             audio_data = np.clip(audio_data * gain, -32767, 32767).astype(np.int16)
             new_avg = np.abs(audio_data).mean()
             new_peak = np.abs(audio_data).max()

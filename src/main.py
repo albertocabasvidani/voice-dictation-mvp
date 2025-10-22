@@ -16,6 +16,7 @@ from src.core.hotkey_manager import HotkeyManager
 from src.core.text_processor import TextProcessor
 from src.ui.system_tray import SystemTray
 from src.ui.settings_window import SettingsWindow
+from src.ui.recording_widget import RecordingWidget
 
 
 class VoiceDictationApp:
@@ -55,9 +56,11 @@ class VoiceDictationApp:
         self.hotkey_manager = None
         self.text_processor = None
         self.system_tray = None
+        self.recording_widget = None
 
         self.is_running = False
         self.is_recording = False
+        self.is_cancelled = False
         self.recording_thread = None
 
         self._initialize()
@@ -72,7 +75,8 @@ class VoiceDictationApp:
             audio_config = self.config.get('audio', {})
             self.audio_recorder = AudioRecorder(
                 sample_rate=audio_config.get('sample_rate', 16000),
-                device_index=audio_config.get('device_index', -1)
+                device_index=audio_config.get('device_index', -1),
+                max_gain=audio_config.get('volume_gain', 1000)
             )
             print("  [OK] Audio recorder loaded")
 
@@ -111,6 +115,10 @@ class VoiceDictationApp:
         try:
             self.hotkey_manager.register(modifiers, key, self._toggle_recording)
             print(f"Hotkey registered: {'+'.join(modifiers + [key])}")
+
+            # Register ESC to cancel recording
+            self.hotkey_manager.register([], 'esc', self._cancel_recording)
+            print("ESC registered to cancel recording")
         except Exception as e:
             print(f"Failed to register hotkey: {e}")
             print("Make sure to run as administrator on Windows")
@@ -129,8 +137,13 @@ class VoiceDictationApp:
 
         print("\n=== Recording started ===")
         self.is_recording = True
+        self.is_cancelled = False
         self.system_tray.set_recording(True)
         self.system_tray.set_status("Recording...")
+
+        # Show recording widget
+        self.recording_widget = RecordingWidget()
+        self.recording_widget.show()
 
         self.audio_recorder.start_recording()
 
@@ -147,6 +160,30 @@ class VoiceDictationApp:
                 print(f"Recording error: {e}")
                 break
 
+    def _cancel_recording(self):
+        """Cancel recording (ESC pressed)"""
+        if not self.is_recording:
+            return
+
+        print("\n=== Recording cancelled ===")
+        self.is_recording = False
+        self.is_cancelled = True
+        self.system_tray.set_recording(False)
+        self.system_tray.set_status("Cancelled")
+
+        # Hide recording widget
+        if self.recording_widget:
+            self.recording_widget.hide()
+            self.recording_widget = None
+
+        # Wait for recording thread
+        if self.recording_thread:
+            self.recording_thread.join(timeout=1)
+
+        # Clear recording data without processing
+        self.audio_recorder.recording = []
+        print("Recording discarded")
+
     def _stop_recording(self):
         """Stop recording and process audio"""
         if not self.is_recording:
@@ -156,9 +193,19 @@ class VoiceDictationApp:
         self.is_recording = False
         self.system_tray.set_recording(False)
 
+        # Hide recording widget
+        if self.recording_widget:
+            self.recording_widget.hide()
+            self.recording_widget = None
+
         # Wait for recording thread
         if self.recording_thread:
             self.recording_thread.join(timeout=1)
+
+        # Check if cancelled
+        if self.is_cancelled:
+            self.system_tray.set_status("Ready")
+            return
 
         try:
             # Get audio data
@@ -212,6 +259,14 @@ class VoiceDictationApp:
 
             # Reload text processor with new config
             self.text_processor.reload_config(new_config)
+
+            # Recreate audio recorder with new settings
+            audio_config = new_config.get('audio', {})
+            self.audio_recorder = AudioRecorder(
+                sample_rate=audio_config.get('sample_rate', 16000),
+                device_index=audio_config.get('device_index', -1),
+                max_gain=audio_config.get('volume_gain', 1000)
+            )
 
             # Re-register hotkey
             self.hotkey_manager.unregister_all()

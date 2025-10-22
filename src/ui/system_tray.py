@@ -55,6 +55,9 @@ class SystemTray:
             self.create_menu()
         )
 
+        # Add double-click handler to open settings
+        self.icon.on_double_click = lambda icon, item: self.on_settings() if self.on_settings else None
+
         # Run in blocking mode
         self.icon.run()
 

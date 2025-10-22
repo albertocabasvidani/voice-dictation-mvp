@@ -35,6 +35,7 @@ class SettingsWindow:
 
         # Create tabs
         self._create_hotkey_tab(notebook)
+        self._create_audio_tab(notebook)
         self._create_transcription_tab(notebook)
         self._create_llm_tab(notebook)
         self._create_advanced_tab(notebook)
@@ -75,6 +76,89 @@ class SettingsWindow:
             text="Example: ctrl+shift+space\nSupported modifiers: ctrl, shift, alt, win",
             fg="gray"
         ).pack(pady=10)
+
+    def _create_audio_tab(self, notebook):
+        """Create audio configuration tab"""
+        frame = ttk.Frame(notebook)
+        notebook.add(frame, text="Audio")
+
+        tk.Label(frame, text="Audio Configuration", font=('Arial', 12, 'bold')).pack(pady=10)
+
+        # Audio device selection
+        tk.Label(frame, text="Microphone Device:").pack(anchor='w', padx=20, pady=(10, 0))
+
+        # Get available audio devices
+        try:
+            import sounddevice as sd
+            devices = sd.query_devices()
+            input_devices = [(i, dev['name']) for i, dev in enumerate(devices) if dev['max_input_channels'] > 0]
+            device_names = [f"{i}: {name}" for i, name in input_devices]
+            default_device = sd.default.device[0]
+        except:
+            device_names = ["Default Device"]
+            default_device = -1
+
+        self.device_var = tk.StringVar()
+        current_device = self.config.get('audio', {}).get('device_index', -1)
+        if current_device == -1:
+            self.device_var.set(f"{default_device}: Default Device")
+        else:
+            matching = [name for name in device_names if name.startswith(f"{current_device}:")]
+            if matching:
+                self.device_var.set(matching[0])
+            else:
+                self.device_var.set(device_names[0] if device_names else "Default Device")
+
+        device_combo = ttk.Combobox(frame, textvariable=self.device_var, width=47, state='readonly')
+        device_combo['values'] = device_names
+        device_combo.pack(padx=20, pady=5)
+
+        # Volume gain control
+        tk.Label(frame, text="Volume Amplification:", font=('Arial', 10, 'bold')).pack(anchor='w', padx=20, pady=(20, 5))
+        tk.Label(
+            frame,
+            text="Increase if your microphone is too quiet (not recommended for normal mics)",
+            fg="gray",
+            font=('Arial', 8)
+        ).pack(anchor='w', padx=20)
+
+        # Gain slider
+        gain_frame = tk.Frame(frame)
+        gain_frame.pack(fill='x', padx=20, pady=10)
+
+        tk.Label(gain_frame, text="1x").pack(side='left')
+
+        current_gain = self.config.get('audio', {}).get('volume_gain', 1000)
+        self.gain_var = tk.IntVar(value=current_gain)
+
+        self.gain_slider = tk.Scale(
+            gain_frame,
+            from_=1,
+            to=1000,
+            orient='horizontal',
+            variable=self.gain_var,
+            command=self._update_gain_label,
+            length=300
+        )
+        self.gain_slider.pack(side='left', padx=10)
+
+        tk.Label(gain_frame, text="1000x").pack(side='left')
+
+        # Current gain label
+        self.gain_label = tk.Label(frame, text=f"Current: {current_gain}x", font=('Arial', 10, 'bold'))
+        self.gain_label.pack(pady=5)
+
+        tk.Label(
+            frame,
+            text="Note: Higher values amplify weak signals but also amplify noise.\nFor best results, increase Windows microphone level first.",
+            fg="gray",
+            font=('Arial', 8),
+            justify='center'
+        ).pack(pady=10)
+
+    def _update_gain_label(self, value):
+        """Update gain label when slider moves"""
+        self.gain_label.config(text=f"Current: {value}x")
 
     def _create_transcription_tab(self, notebook):
         """Create transcription provider configuration tab"""
@@ -274,6 +358,15 @@ class SettingsWindow:
             self.config_manager.config = self.config
             self.config_manager.set_llm_api_key(llm_api_key)
             self.config = self.config_manager.config
+
+        # Audio
+        device_str = self.device_var.get()
+        try:
+            device_index = int(device_str.split(':')[0])
+            self.config['audio']['device_index'] = device_index
+        except:
+            self.config['audio']['device_index'] = -1
+        self.config['audio']['volume_gain'] = self.gain_var.get()
 
         # Advanced
         self.config['behavior']['auto_paste'] = self.auto_paste_var.get()
