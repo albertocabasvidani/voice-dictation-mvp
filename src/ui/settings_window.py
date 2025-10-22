@@ -68,16 +68,98 @@ class SettingsWindow:
         tk.Label(frame, text=f"Current hotkey: {current_hotkey}").pack(pady=5)
 
         # Hotkey entry
-        tk.Label(frame, text="Press new hotkey combination:").pack(pady=5)
-        self.hotkey_entry = tk.Entry(frame, width=30)
-        self.hotkey_entry.pack(pady=5)
+        tk.Label(frame, text="Hotkey combination:").pack(pady=5)
+
+        hotkey_frame = tk.Frame(frame)
+        hotkey_frame.pack(pady=5)
+
+        self.hotkey_entry = tk.Entry(hotkey_frame, width=25, state='readonly')
+        self.hotkey_entry.pack(side='left', padx=(0, 10))
         self.hotkey_entry.insert(0, current_hotkey)
+
+        self.capture_hotkey_btn = tk.Button(hotkey_frame, text="Capture", command=self._capture_hotkey, width=12)
+        self.capture_hotkey_btn.pack(side='left')
 
         tk.Label(
             frame,
-            text="Example: ctrl+shift+space\nSupported modifiers: ctrl, shift, alt, win",
+            text="Click 'Capture' and press your desired hotkey combination",
             fg="gray"
         ).pack(pady=10)
+
+    def _capture_hotkey(self):
+        """Capture hotkey from user input"""
+        from pynput import keyboard
+        import threading
+
+        captured_keys = set()
+        captured_modifiers = set()
+        capturing = [True]  # Use list to allow modification in nested function
+
+        def on_press(key):
+            if not capturing[0]:
+                return False
+
+            try:
+                # Handle modifiers
+                if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r or key == keyboard.Key.ctrl:
+                    captured_modifiers.add('ctrl')
+                elif key == keyboard.Key.shift_l or key == keyboard.Key.shift_r or key == keyboard.Key.shift:
+                    captured_modifiers.add('shift')
+                elif key == keyboard.Key.alt_l or key == keyboard.Key.alt_r or key == keyboard.Key.alt:
+                    captured_modifiers.add('alt')
+                elif key == keyboard.Key.cmd or key == keyboard.Key.cmd_l or key == keyboard.Key.cmd_r:
+                    captured_modifiers.add('win')
+                else:
+                    # Regular key pressed - capture and stop
+                    if hasattr(key, 'char') and key.char:
+                        captured_keys.add(key.char.lower())
+                    elif hasattr(key, 'name'):
+                        captured_keys.add(key.name.lower())
+
+                    # Stop capturing after first non-modifier key
+                    if captured_keys:
+                        capturing[0] = False
+                        return False
+            except:
+                pass
+
+        def capture_thread():
+            # Update button
+            self.capture_hotkey_btn.config(state='disabled', text="Press keys...")
+            self.hotkey_entry.config(state='normal')
+            self.hotkey_entry.delete(0, tk.END)
+            self.hotkey_entry.insert(0, "Waiting...")
+            self.hotkey_entry.config(state='readonly')
+
+            # Start listener
+            with keyboard.Listener(on_press=on_press) as listener:
+                listener.join()
+
+            # Format captured hotkey
+            if captured_keys:
+                modifiers_list = sorted(list(captured_modifiers))
+                key_list = list(captured_keys)
+                hotkey_parts = modifiers_list + key_list
+                hotkey_str = '+'.join(hotkey_parts)
+
+                # Update entry
+                self.hotkey_entry.config(state='normal')
+                self.hotkey_entry.delete(0, tk.END)
+                self.hotkey_entry.insert(0, hotkey_str)
+                self.hotkey_entry.config(state='readonly')
+            else:
+                # No keys captured
+                self.hotkey_entry.config(state='normal')
+                self.hotkey_entry.delete(0, tk.END)
+                self.hotkey_entry.insert(0, "No keys captured")
+                self.hotkey_entry.config(state='readonly')
+
+            # Re-enable button
+            self.capture_hotkey_btn.config(state='normal', text="Capture")
+
+        # Run capture in thread
+        thread = threading.Thread(target=capture_thread, daemon=True)
+        thread.start()
 
     def _create_audio_tab(self, notebook):
         """Create audio configuration tab"""
@@ -160,6 +242,18 @@ class SettingsWindow:
             justify='center'
         ).pack(pady=10)
 
+        # Microphone calibration
+        tk.Label(frame, text="Microphone Calibration:", font=('Arial', 10, 'bold')).pack(anchor='w', padx=20, pady=(10, 5))
+
+        calibration_frame = tk.Frame(frame)
+        calibration_frame.pack(fill='x', padx=20, pady=5)
+
+        self.calibrate_btn = tk.Button(calibration_frame, text="Test Microphone (5s)", command=self._test_microphone, width=20)
+        self.calibrate_btn.pack(side='left', padx=(0, 10))
+
+        self.calibration_result = tk.Label(calibration_frame, text="", fg="green", font=('Arial', 9))
+        self.calibration_result.pack(side='left')
+
     def _update_gain_label(self, value):
         """Update gain label when slider moves"""
         try:
@@ -167,6 +261,74 @@ class SettingsWindow:
             self.gain_label.config(text=f"Current: {val:.1f}x")
         except:
             self.gain_label.config(text=f"Current: {value}x")
+
+    def _test_microphone(self):
+        """Test microphone and suggest gain"""
+        import threading
+        import sounddevice as sd
+        import numpy as np
+
+        def test_audio():
+            try:
+                # Disable button during test
+                self.calibrate_btn.config(state='disabled', text="Recording...")
+                self.calibration_result.config(text="Speak now for 5 seconds...", fg="blue")
+
+                # Get device index
+                device_str = self.device_var.get()
+                try:
+                    device_index = int(device_str.split(':')[0])
+                except:
+                    device_index = None
+
+                # Record 5 seconds
+                sample_rate = 16000
+                duration = 5.0
+                audio_data = sd.rec(
+                    int(duration * sample_rate),
+                    samplerate=sample_rate,
+                    channels=1,
+                    dtype='int16',
+                    device=device_index
+                )
+                sd.wait()
+
+                # Analyze audio levels
+                avg_level = np.abs(audio_data).mean()
+                max_level = np.abs(audio_data).max()
+
+                # Calculate suggested gain
+                target_avg = 2000  # Target average level
+                if avg_level < 100:
+                    suggested_gain = min(10.0, target_avg / (avg_level + 1))
+                elif avg_level < 500:
+                    suggested_gain = min(5.0, target_avg / (avg_level + 1))
+                elif avg_level < 1500:
+                    suggested_gain = min(3.0, target_avg / (avg_level + 1))
+                else:
+                    suggested_gain = 1.0
+
+                # Round to 1 decimal
+                suggested_gain = round(suggested_gain, 1)
+
+                # Update UI
+                result_text = f"Avg: {avg_level:.0f}, Peak: {max_level:.0f} → Suggested: {suggested_gain}x"
+                self.calibration_result.config(text=result_text, fg="green")
+
+                # Apply suggested gain to slider
+                self.gain_var.set(suggested_gain)
+                self._update_gain_label(suggested_gain)
+
+                # Re-enable button
+                self.calibrate_btn.config(state='normal', text="Test Microphone (5s)")
+
+            except Exception as e:
+                self.calibration_result.config(text=f"Error: {str(e)}", fg="red")
+                self.calibrate_btn.config(state='normal', text="Test Microphone (5s)")
+
+        # Run in separate thread
+        thread = threading.Thread(target=test_audio, daemon=True)
+        thread.start()
 
     def _create_transcription_tab(self, notebook):
         """Create transcription provider configuration tab"""

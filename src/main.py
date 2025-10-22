@@ -155,12 +155,30 @@ class VoiceDictationApp:
 
     def _record_loop(self):
         """Record audio in loop until stopped"""
+        silence_timeout = 60.0  # Auto-stop after 60 seconds of silence
+
         while self.is_recording:
             try:
                 self.audio_recorder.record_chunk(duration=0.1)
+
+                # Check for silence timeout
+                silence_duration = self.audio_recorder.get_silence_duration()
+                if silence_duration >= silence_timeout:
+                    print(f"\nAuto-stopping after {silence_duration:.1f}s of silence")
+                    self.is_recording = False
+                    # Trigger stop_recording from main thread
+                    self._auto_stop_recording()
+                    break
+
             except Exception as e:
                 print(f"Recording error: {e}")
                 break
+
+    def _auto_stop_recording(self):
+        """Auto-stop recording due to silence timeout"""
+        # Just call the normal stop, it will process the audio
+        print("Auto-stop triggered, processing audio...")
+        threading.Thread(target=self._stop_recording, daemon=True).start()
 
     def _cancel_recording(self):
         """Cancel recording (ESC pressed)"""

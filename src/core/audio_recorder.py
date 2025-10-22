@@ -3,6 +3,7 @@ import numpy as np
 import io
 import struct
 import queue
+import time
 
 
 class AudioRecorder:
@@ -16,6 +17,8 @@ class AudioRecorder:
         self.is_recording = False
         self.stream = None
         self.audio_queue = queue.Queue()
+        self.last_audio_time = None  # Track last time audio was detected
+        self.silence_threshold = 300  # Below this level is considered silence
 
         # Log ALL devices and select best one
         try:
@@ -38,7 +41,7 @@ class AudioRecorder:
         except Exception as e:
             print(f"Warning: Could not get device info: {e}")
 
-    def _audio_callback(self, indata, frames, time, status):
+    def _audio_callback(self, indata, frames, time_info, status):
         """Callback for continuous audio stream"""
         if status:
             print(f"Audio callback status: {status}")
@@ -46,10 +49,16 @@ class AudioRecorder:
         # Put audio data in queue (copy to avoid issues)
         self.audio_queue.put(indata.copy())
 
+        # Check if audio or silence
+        audio_level = np.abs(indata).mean()
+        if audio_level > self.silence_threshold:
+            self.last_audio_time = time.time()
+
     def start_recording(self):
         """Start recording audio"""
         self.recording = []
         self.is_recording = True
+        self.last_audio_time = time.time()  # Initialize with current time
 
         # Clear queue
         while not self.audio_queue.empty():
@@ -69,6 +78,12 @@ class AudioRecorder:
         )
         self.stream.start()
         print("Audio stream started")
+
+    def get_silence_duration(self) -> float:
+        """Get seconds since last audio detected"""
+        if self.last_audio_time is None:
+            return 0.0
+        return time.time() - self.last_audio_time
 
     def stop_recording(self) -> bytes:
         """Stop recording and return audio data as WAV bytes"""
