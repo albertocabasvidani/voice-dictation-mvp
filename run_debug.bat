@@ -6,7 +6,7 @@ echo.
 echo Running executable with error catching...
 echo.
 
-dist\VoiceDictation.exe
+dist\VoiceDictation\VoiceDictation.exe
 
 echo.
 echo ================================================

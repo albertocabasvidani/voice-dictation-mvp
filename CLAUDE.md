@@ -139,10 +139,14 @@ pyinstaller VoiceDictation.spec
 **IMPORTANTE BUILD**:
 - File spec: `VoiceDictation.spec` - configurazione PyInstaller
 - Entry point: `run_app.py` (wrapper per import compatibility)
-- Mode: onefile (tutto in un .exe singolo)
-- Dipendenze critiche installate: sounddevice, scipy, keyboard, pystray, pynput, pyautogui
-- **Problema noto**: scipy+torch creano exe da 2.7GB che non funziona in onefile mode
-- **Soluzione in progress**: rimuovere scipy, sostituire con libreria leggera per WAV writing
+- Mode: **onedir** (folder con exe + DLLs separate)
+- Output: `dist/VoiceDictation/` (77MB totale)
+  - `VoiceDictation.exe` (9.5MB) - bootloader
+  - `_internal/` - librerie Python, DLLs, config
+- Dipendenze: sounddevice, keyboard, pystray, pynput, pyautogui, numpy, PIL, tkinter
+- **scipy rimossa**: sostituita con WAV writing manuale in `audio_recorder.py` usando `struct`
+- Build time: ~100 secondi
+- Distribuzione: zippare intera folder `VoiceDictation/`
 
 ## Testing Strategy
 
