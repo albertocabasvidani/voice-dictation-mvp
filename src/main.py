@@ -32,9 +32,13 @@ class VoiceDictationApp:
 
         # Check if using template (no API keys configured)
         trans_key = self.config_manager.get_transcription_api_key()
+        llm_provider = self.config.get('llm', {}).get('provider', '')
         llm_key = self.config_manager.get_llm_api_key()
 
-        if not trans_key or not llm_key:
+        # Ollama doesn't need API key
+        llm_needs_key = llm_provider not in ['ollama']
+
+        if not trans_key or (llm_needs_key and not llm_key):
             print("\n" + "!"*60)
             print("WARNING: No API keys configured!")
             print("!"*60)
