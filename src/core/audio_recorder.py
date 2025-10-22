@@ -51,7 +51,21 @@ class AudioRecorder:
 
         # Log audio info
         duration = len(audio_data) / self.sample_rate
+        avg_level = np.abs(audio_data).mean()
+        max_level = np.abs(audio_data).max()
         print(f"Audio recorded: {duration:.2f}s ({len(audio_data)} samples at {self.sample_rate}Hz)")
+        print(f"Audio levels - Average: {avg_level:.1f}, Peak: {max_level:.1f} (max possible: 32767)")
+
+        # Amplify if signal is too weak
+        if avg_level < 100 and max_level < 1000:
+            print(f"WARNING: Audio level very low ({avg_level:.1f})")
+            print("Tip: Enable 'Microphone Boost' in Windows Sound Settings > Recording > Microphone Properties > Levels")
+
+            # Apply gain (amplify by 10x, but avoid clipping)
+            gain = min(10.0, 30000.0 / (max_level + 1))  # +1 to avoid division by zero
+            audio_data = np.clip(audio_data * gain, -32767, 32767).astype(np.int16)
+            new_avg = np.abs(audio_data).mean()
+            print(f"Applied {gain:.1f}x gain: new average level = {new_avg:.1f}")
 
         # Convert to WAV bytes
         wav_bytes = self._to_wav_bytes(audio_data)
