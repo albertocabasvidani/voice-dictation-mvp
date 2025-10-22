@@ -59,13 +59,15 @@ class AudioRecorder:
         # Amplify if signal is too weak
         if avg_level < 100 and max_level < 1000:
             print(f"WARNING: Audio level very low ({avg_level:.1f})")
-            print("Tip: Enable 'Microphone Boost' in Windows Sound Settings > Recording > Microphone Properties > Levels")
+            print("Tip: Speak VERY close to the microphone")
 
-            # Apply gain (amplify by 10x, but avoid clipping)
-            gain = min(10.0, 30000.0 / (max_level + 1))  # +1 to avoid division by zero
+            # Apply aggressive gain (amplify up to 100x for very weak signals)
+            target_level = 8000.0  # Target average level
+            gain = min(100.0, target_level / (avg_level + 1))  # +1 to avoid division by zero
             audio_data = np.clip(audio_data * gain, -32767, 32767).astype(np.int16)
             new_avg = np.abs(audio_data).mean()
-            print(f"Applied {gain:.1f}x gain: new average level = {new_avg:.1f}")
+            new_peak = np.abs(audio_data).max()
+            print(f"Applied {gain:.1f}x gain: Average {new_avg:.1f}, Peak {new_peak:.1f}")
 
         # Convert to WAV bytes
         wav_bytes = self._to_wav_bytes(audio_data)
