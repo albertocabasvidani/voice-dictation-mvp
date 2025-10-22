@@ -193,10 +193,13 @@ class VoiceDictationApp:
         self.is_recording = False
         self.system_tray.set_recording(False)
 
-        # Hide recording widget
+        # Update widget to show processing (don't hide)
         if self.recording_widget:
-            self.recording_widget.hide()
-            self.recording_widget = None
+            self.recording_widget.update_status(
+                title="Processing",
+                status="Preparing audio...",
+                stop_animation=True
+            )
 
         # Wait for recording thread
         if self.recording_thread:
@@ -205,6 +208,9 @@ class VoiceDictationApp:
         # Check if cancelled
         if self.is_cancelled:
             self.system_tray.set_status("Ready")
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
             return
 
         try:
@@ -223,6 +229,10 @@ class VoiceDictationApp:
             print(f"Error: {e}")
             self.system_tray.set_status("Error!")
             self.system_tray.notify("Error", str(e))
+            # Hide widget on error
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
 
     def _process_audio(self, audio_data: bytes):
         """Process audio data through pipeline"""
@@ -237,13 +247,27 @@ class VoiceDictationApp:
                 f.write(audio_data)
             print(f"Audio saved to: {wav_path}")
 
+            # Update widget during processing
             def status_callback(status: str):
                 self.system_tray.set_status(status)
+                if self.recording_widget:
+                    if "Transcribing" in status:
+                        self.recording_widget.update_status(title="Transcribing", status="Converting speech to text...")
+                    elif "Processing" in status:
+                        self.recording_widget.update_status(title="Post-processing", status="Formatting text...")
+
+            # Update widget for transcription
+            if self.recording_widget:
+                self.recording_widget.update_status(title="Transcribing", status="Converting speech to text...")
 
             # Process
             result_text = self.text_processor.process_audio(audio_data, status_callback)
 
-            # Success
+            # Success - hide widget
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
+
             self.system_tray.set_status("Ready")
             self.system_tray.notify("Success", f"Inserted: {result_text[:50]}...")
 
@@ -251,6 +275,11 @@ class VoiceDictationApp:
             print(f"Processing error: {e}")
             self.system_tray.set_status("Error!")
             self.system_tray.notify("Error", str(e))
+
+            # Hide widget on error
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
 
     def _show_settings(self):
         """Show settings window"""

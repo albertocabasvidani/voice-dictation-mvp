@@ -134,7 +134,7 @@ class SettingsWindow:
         self.gain_slider = tk.Scale(
             gain_frame,
             from_=1,
-            to=1000,
+            to=100000,
             orient='horizontal',
             variable=self.gain_var,
             command=self._update_gain_label,
@@ -142,7 +142,7 @@ class SettingsWindow:
         )
         self.gain_slider.pack(side='left', padx=10)
 
-        tk.Label(gain_frame, text="1000x").pack(side='left')
+        tk.Label(gain_frame, text="100000x").pack(side='left')
 
         # Current gain label
         self.gain_label = tk.Label(frame, text=f"Current: {current_gain}x", font=('Arial', 10, 'bold'))

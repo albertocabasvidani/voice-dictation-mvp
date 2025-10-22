@@ -30,13 +30,13 @@ class RecordingWidget:
             y = 20
             self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-            # Semi-transparent background
-            self.window.configure(bg='#1a1a1a')
-            self.window.attributes('-alpha', 0.9)
+            # Semi-transparent background with border
+            self.window.configure(bg='white')
+            self.window.attributes('-alpha', 0.95)
 
-            # Create content frame
-            frame = tk.Frame(self.window, bg='#1a1a1a', padx=20, pady=15)
-            frame.pack(fill='both', expand=True)
+            # Create content frame with border
+            frame = tk.Frame(self.window, bg='#1a1a1a', padx=20, pady=15, highlightbackground='white', highlightthickness=2)
+            frame.pack(fill='both', expand=True, padx=2, pady=2)
 
             # Recording indicator (red circle)
             canvas = tk.Canvas(frame, width=20, height=20, bg='#1a1a1a', highlightthickness=0)
@@ -47,13 +47,14 @@ class RecordingWidget:
             text_frame = tk.Frame(frame, bg='#1a1a1a')
             text_frame.pack(side='left', fill='both', expand=True)
 
-            tk.Label(
+            self.title_label = tk.Label(
                 text_frame,
                 text="Recording",
                 font=('Arial', 14, 'bold'),
                 fg='white',
                 bg='#1a1a1a'
-            ).pack(anchor='w')
+            )
+            self.title_label.pack(anchor='w')
 
             self.status_label = tk.Label(
                 text_frame,
@@ -87,13 +88,23 @@ class RecordingWidget:
         except:
             pass
 
-    def update_status(self, status: str):
-        """Update status text"""
-        if self.window and self.status_label:
-            try:
+    def update_status(self, title: str = None, status: str = None, stop_animation: bool = False):
+        """Update title and/or status text"""
+        if not self.window:
+            return
+
+        try:
+            if title and self.title_label:
+                self.title_label.config(text=title)
+
+            if status and self.status_label:
                 self.status_label.config(text=status)
-            except:
-                pass
+
+            if stop_animation and self.animation_id:
+                self.window.after_cancel(self.animation_id)
+                self.animation_id = None
+        except:
+            pass
 
     def hide(self):
         """Hide recording widget"""

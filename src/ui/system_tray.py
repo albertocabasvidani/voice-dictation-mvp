@@ -48,6 +48,11 @@ class SystemTray:
 
     def start(self):
         """Start system tray icon"""
+        # Define default action (double-click)
+        def default_action(icon, item):
+            if self.on_settings:
+                self.on_settings()
+
         self.icon = pystray.Icon(
             "voice_dictation",
             self.create_icon("green"),
@@ -55,8 +60,8 @@ class SystemTray:
             self.create_menu()
         )
 
-        # Add double-click handler to open settings
-        self.icon.on_double_click = lambda icon, item: self.on_settings() if self.on_settings else None
+        # Set default action (triggered on left click)
+        self.icon.default_action = default_action
 
         # Run in blocking mode
         self.icon.run()
