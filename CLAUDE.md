@@ -34,6 +34,7 @@ Ogni provider implementa interfaccia comune:
 - Gestisce recording con `sounddevice`
 - Rileva inizio/fine tramite hotkey
 - Output: buffer audio 16kHz mono
+- **Dipendenza pesante**: usa `scipy.io.wavfile` per scrivere WAV (causa import torch → 2.7GB exe)
 
 **`src/core/config_manager.py`**
 - Carica/salva `config/config.json`
@@ -126,9 +127,22 @@ pytest --cov=src tests/
 
 ### Build Eseguibile
 ```bash
-pyinstaller --onefile --windowed --name VoiceDictation src/main.py
+# Metodo 1: Batch file automatico (raccomandato)
+build_exe.bat
+# Preserva automaticamente config.json, output: dist/VoiceDictation.exe
+
+# Metodo 2: PyInstaller diretto
+pyinstaller VoiceDictation.spec
 # Output: dist/VoiceDictation.exe
 ```
+
+**IMPORTANTE BUILD**:
+- File spec: `VoiceDictation.spec` - configurazione PyInstaller
+- Entry point: `run_app.py` (wrapper per import compatibility)
+- Mode: onefile (tutto in un .exe singolo)
+- Dipendenze critiche installate: sounddevice, scipy, keyboard, pystray, pynput, pyautogui
+- **Problema noto**: scipy+torch creano exe da 2.7GB che non funziona in onefile mode
+- **Soluzione in progress**: rimuovere scipy, sostituire con libreria leggera per WAV writing
 
 ## Testing Strategy
 

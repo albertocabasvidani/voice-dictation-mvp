@@ -46,10 +46,7 @@ a = Analysis(
         'sounddevice._sounddevice',
         'cffi',
         'soundfile',
-        # Scientific libraries
-        'scipy',
-        'scipy.io',
-        'scipy.io.wavfile',
+        # Scientific libraries (scipy removed - manual WAV writing)
         'numpy',
         'numpy.core',
         'numpy.core._multiarray_umath',
@@ -84,6 +81,10 @@ a = Analysis(
         'notebook',
         'IPython',
         'pytest',
+        'scipy',  # Not needed - manual WAV writing
+        'torch',  # Accidentally imported by some libraries
+        'tensorflow',
+        'tensorboard',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

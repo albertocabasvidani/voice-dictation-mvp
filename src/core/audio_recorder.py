@@ -1,7 +1,7 @@
 import sounddevice as sd
 import numpy as np
-from scipy.io import wavfile
 import io
+import struct
 
 
 class AudioRecorder:
@@ -69,12 +69,38 @@ class AudioRecorder:
             raise Exception(f"Audio recording failed: {str(e)}")
 
     def _to_wav_bytes(self, audio_data: np.ndarray) -> bytes:
-        """Convert numpy array to WAV file bytes"""
+        """Convert numpy array to WAV file bytes (manual WAV writing, no scipy)"""
         # Create in-memory buffer
         buffer = io.BytesIO()
 
-        # Write WAV file to buffer
-        wavfile.write(buffer, self.sample_rate, audio_data)
+        # Ensure audio_data is int16
+        if audio_data.dtype != np.int16:
+            audio_data = audio_data.astype(np.int16)
+
+        # WAV file parameters
+        num_channels = 1
+        sample_width = 2  # 16-bit = 2 bytes
+        num_frames = len(audio_data)
+
+        # Write WAV header (44 bytes)
+        buffer.write(b'RIFF')
+        buffer.write(struct.pack('<I', 36 + num_frames * num_channels * sample_width))  # File size - 8
+        buffer.write(b'WAVE')
+
+        # Write fmt chunk
+        buffer.write(b'fmt ')
+        buffer.write(struct.pack('<I', 16))  # fmt chunk size
+        buffer.write(struct.pack('<H', 1))   # PCM format
+        buffer.write(struct.pack('<H', num_channels))
+        buffer.write(struct.pack('<I', self.sample_rate))
+        buffer.write(struct.pack('<I', self.sample_rate * num_channels * sample_width))  # Byte rate
+        buffer.write(struct.pack('<H', num_channels * sample_width))  # Block align
+        buffer.write(struct.pack('<H', sample_width * 8))  # Bits per sample
+
+        # Write data chunk
+        buffer.write(b'data')
+        buffer.write(struct.pack('<I', num_frames * num_channels * sample_width))
+        buffer.write(audio_data.tobytes())
 
         # Get bytes
         buffer.seek(0)
