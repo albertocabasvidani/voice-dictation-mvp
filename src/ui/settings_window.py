@@ -46,8 +46,8 @@ class SettingsWindow:
         btn_frame = tk.Frame(self.window)
         btn_frame.pack(fill='x', padx=10, pady=10)
 
-        tk.Button(btn_frame, text="Save", command=self._save, width=15).pack(side='right', padx=5)
-        tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15).pack(side='right')
+        tk.Button(btn_frame, text="Save", command=self._save, width=15, height=2).pack(side='right', padx=5)
+        tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15, height=2).pack(side='right')
 
         self.window.protocol("WM_DELETE_WINDOW", self._cancel)
         self.window.mainloop()

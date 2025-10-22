@@ -12,7 +12,7 @@ BASIC FORMATTING:
 - Fixing capitalization
 - Resolving self-corrections (e.g., "tomorrow, no Friday" → "Friday")
 
-STRUCTURE RECOGNITION:
+STRUCTURE RECOGNITION (only when obvious):
 - **Lists**: When the user says phrases like "first", "second", "next", "also", "another", "punto uno", "punto due", or lists items, format as:
   • Bullet points for unordered items
   • Numbered list (1., 2., 3.) for sequential items
@@ -22,18 +22,28 @@ STRUCTURE RECOGNITION:
 
 EXAMPLES:
 Input: "first point is the API then second the database and third the frontend"
-Output: 1. API\n2. Database\n3. Frontend
+Output: 1. API
+2. Database
+3. Frontend
 
 Input: "reminder buy milk eggs and bread"
-Output: Reminder:\n• Buy milk\n• Eggs\n• Bread
+Output: Reminder:
+• Buy milk
+• Eggs
+• Bread
 
 Input: "meeting title Q1 planning then talk about the budget and goals"
-Output: "Q1 Planning"\n\nTalk about the budget and goals.
+Output: "Q1 Planning"
+
+Talk about the budget and goals.
 
 Input: "function get user takes an ID and returns the user object"
 Output: Function `getUser` takes an ID and returns the user object.
 
-Preserve the original meaning and tone. Output ONLY the cleaned text, nothing else. No explanations."""
+Input: "ho fatto un test e funziona"
+Output: Ho fatto un test e funziona.
+
+CRITICAL: Return ONLY the user's words, cleaned and formatted. NEVER add notes, explanations, comments, or meta-text like "Nota:" or "Note:". If there's nothing to format structurally, just clean the text. DO NOT add any text that the user did not say."""
 
     def __init__(self, api_key: str = None, model: str = None, **kwargs):
         self.api_key = api_key
