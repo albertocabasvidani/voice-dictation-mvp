@@ -13,16 +13,24 @@ class AudioRecorder:
         self.recording = []
         self.is_recording = False
 
-        # Log device info
+        # Log ALL devices and select best one
         try:
             devices = sd.query_devices()
+            print("\n=== Available Audio Devices ===")
+            for i, device in enumerate(devices):
+                if device['max_input_channels'] > 0:
+                    default_marker = " [DEFAULT]" if i == sd.default.device[0] else ""
+                    print(f"  {i}: {device['name']} (in:{device['max_input_channels']}, out:{device['max_output_channels']}){default_marker}")
+
             if self.device_index is None:
                 default_device = sd.default.device[0]
                 device_info = devices[default_device]
-                print(f"Audio device: DEFAULT - {device_info['name']} (index: {default_device})")
+                print(f"\n>>> Using DEFAULT device: {device_info['name']} (index: {default_device})")
             else:
                 device_info = devices[self.device_index]
-                print(f"Audio device: {device_info['name']} (index: {self.device_index})")
+                print(f"\n>>> Using device: {device_info['name']} (index: {self.device_index})")
+
+            print("=== End of Audio Devices ===\n")
         except Exception as e:
             print(f"Warning: Could not get device info: {e}")
 
@@ -65,6 +73,12 @@ class AudioRecorder:
             )
             sd.wait()
             self.recording.append(chunk)
+
+            # Log audio level every ~1 second
+            if len(self.recording) % 10 == 0:
+                volume = np.abs(chunk).mean()
+                print(f"Audio level: {volume:.1f} (max: 32767)")
+
         except Exception as e:
             raise Exception(f"Audio recording failed: {str(e)}")
 
