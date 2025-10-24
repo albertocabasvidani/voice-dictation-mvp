@@ -637,21 +637,24 @@ class SettingsWindow:
         # Update config from UI
         # Hotkey
         hotkey_str = self.hotkey_entry.get().strip().lower()
-        if not hotkey_str or hotkey_str == "no keys captured" or hotkey_str == "waiting...":
-            messagebox.showerror("Error", "Please configure a valid hotkey before saving.")
-            return
 
-        parts = hotkey_str.split('+')
-        if len(parts) > 1:
-            self.config['hotkey'] = {
-                'modifiers': parts[:-1],
-                'key': parts[-1]
-            }
+        # If hotkey entry has invalid values (waiting/no keys), keep current config hotkey
+        if not hotkey_str or hotkey_str == "no keys captured" or hotkey_str == "waiting...":
+            # Keep existing hotkey from config (don't change it)
+            print("Hotkey entry invalid, keeping existing hotkey from config")
         else:
-            self.config['hotkey'] = {
-                'modifiers': [],
-                'key': parts[0] if parts[0] else 'space'
-            }
+            # Update hotkey with new value
+            parts = hotkey_str.split('+')
+            if len(parts) > 1:
+                self.config['hotkey'] = {
+                    'modifiers': parts[:-1],
+                    'key': parts[-1]
+                }
+            else:
+                self.config['hotkey'] = {
+                    'modifiers': [],
+                    'key': parts[0] if parts[0] else 'space'
+                }
 
         # Transcription
         self.config['transcription']['provider'] = self.trans_provider_var.get()
