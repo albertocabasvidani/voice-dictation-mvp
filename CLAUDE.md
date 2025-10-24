@@ -292,13 +292,41 @@ pyinstaller VoiceDictation.spec
 - **Salva automaticamente** nuovo gain in config.json per registrazioni future
 - Elimina necessità di calibrazione manuale per la maggior parte degli utenti
 
-### 2. Hotkey Capture Fix (NEW in v1.2)
-**File**: `src/ui/settings_window.py` (linee 113-124)
-- **Fix**: usa `key.name` (tasto fisico) invece di `key.char` (carattere generato)
-- Previene cattura caratteri sbagliati (es. ctrl-shift-d → '~')
+### 2. Hotkey Capture Fix (v1.2)
+**File**: `src/ui/settings_window.py` (linee 113-157)
+- **Fix multi-metodo**: key.name → key.char (solo senza modifier) → vk (virtual key code)
+- Virtual key code funziona correttamente con ALT e altri modifier
+- Previene cattura caratteri sbagliati (es. ctrl-shift-d → '~', ctrl-alt-d → '~~')
 - Ora cattura correttamente il tasto fisico indipendentemente dai modificatori
 
-### 3. Bug Fixes v1.2
+### 3. Hotkey Re-registration Fix (v1.2)
+**File**: `src/main.py` (linee 429-433), `src/core/hotkey_manager.py` (linee 32-42)
+- **Race condition fix**: delay 200ms tra unregister e register
+- Validazione che modifiers sia una lista
+- Logging dettagliato di tutte le operazioni hotkey
+- Fix: hotkey non funzionava dopo cambio nelle impostazioni
+
+### 4. UI Improvements (v1.2)
+**File**: `src/ui/settings_window.py` (linee 32, 45-54)
+- Altezza finestra aumentata: 500px → 550px
+- Pulsanti Save/Cancel con height=3, font Arial 10, padding aumentato
+- Migliore visibilità e usabilità
+
+### 5. Settings After Cancel Fix (v1.2)
+**File**: `src/main.py` (linee 221-253, 404-440)
+- Settings bloccate dopo cancellazione registrazione: FIXED
+- Cleanup completo in `_cancel_recording()` con try-except-finally
+- Check `is_recording` prima di aprire settings
+- Notifica utente se tenta apertura durante registrazione
+
+### 6. LLM Conservative Prompt (v1.2)
+**File**: `src/providers/llm/base.py` (linee 7-58)
+- **CRITICAL RULES** aggiunte per preservare tutte le parole
+- Fix: LLM rimuoveva parole significative ("niente", "facciamo")
+- Ora rimuove SOLO hesitation sounds: um, uh, eh, ehm, mm, hmm, ah
+- Esempi conservativi aggiunti (es. "ok niente facciamo..." → "Ok, niente, facciamo...")
+
+### 7. Bug Fixes v1.2
 **API Key Persistence**: `src/core/config_manager.py` (linee 115-138)
 - Migliorato fallback decryption: DPAPI → base64 → plaintext
 - Previene perdita chiavi quando si passa da exe a dev mode
@@ -359,7 +387,6 @@ pyinstaller VoiceDictation.spec
 - Recording widget persiste durante transcription/processing con status updates
 - Continuous audio stream con queue (fix stuttering)
 - WAV file cleanup: mantiene ultimi 10 recordings
-- Save/Cancel buttons con `height=2` per usabilità
 
 ### 8. Riorganizzazione Struttura Progetto (v1.2)
 **File eliminati** (utility temporanee):
