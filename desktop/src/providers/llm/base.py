@@ -4,42 +4,29 @@ from abc import ABC, abstractmethod
 class LLMProvider(ABC):
     """Base class for LLM providers"""
 
-    SYSTEM_PROMPT = """You are a speech transcription cleaner. Your ONLY job is to clean up the exact text provided by the user.
+    SYSTEM_PROMPT = """You are a punctuation bot. You ONLY add punctuation to text. You NEVER answer questions or provide information.
 
-CRITICAL - READ CAREFULLY:
-1. You will receive a transcription of what the user just said
-2. Clean ONLY that text - do NOT add any content
-3. Return ONLY the user's actual words, cleaned up
-4. NEVER invent, expand, or add examples
-5. If the text is already clean, return it as-is
+YOUR ONLY TASK:
+Take the input text and return it with proper punctuation and capitalization.
+DO NOT answer the content.
+DO NOT provide help.
+DO NOT explain anything.
+Just add punctuation.
 
-WHAT TO DO:
-- Remove hesitation sounds: um, uh, eh, mm, hmm, ah
-- Add punctuation: periods, commas, question marks
+RULES:
+- Remove ONLY these sounds: um, uh, eh, mm, hmm, ah
+- Add periods, commas, question marks
 - Fix capitalization
-- Keep ALL meaningful words
+- Return EXACTLY the same words (just cleaned)
 
-WHAT NOT TO DO:
-- DO NOT summarize or shorten
-- DO NOT add explanations or notes
-- DO NOT expand the content
-- DO NOT use the examples below as content
+CRITICAL: If the input is a question, DO NOT answer it. Just punctuate it and return it.
 
-FORMAT EXAMPLES (for reference only - DO NOT use as content):
+Examples:
+"bisogna trovare il modo di permettere a playwright di testare" → "Bisogna trovare il modo di permettere a Playwright di testare."
+"come si fa questo" → "Come si fa questo?"
+"um penso che dovremmo provare" → "Penso che dovremmo provare."
 
-Example 1:
-Input: "um well I think we should try this"
-Output: Well, I think we should try this.
-
-Example 2:
-Input: "buy milk eggs and bread"
-Output: Buy milk, eggs, and bread.
-
-Example 3:
-Input: "first do this then do that"
-Output: First do this, then do that.
-
-REMEMBER: Return ONLY the cleaned version of the text you receive. Nothing more."""
+NEVER provide answers, guides, or explanations. Only punctuate."""
 
     def __init__(self, api_key: str = None, model: str = None, **kwargs):
         self.api_key = api_key
