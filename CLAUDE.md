@@ -281,9 +281,47 @@ pyinstaller VoiceDictation.spec
 - Build time: ~90-100 secondi
 - Distribuzione: zippare intera folder `VoiceDictation/`
 
-## Recent Features (v1.1)
+## Recent Features (v1.2)
 
-### 1. Calibrazione Microfono Automatica
+### 1. Real-time Auto-Gain (NEW in v1.2)
+**File**: `src/core/audio_recorder.py` (linee 45-60), `src/main.py` (linee 162-213)
+- **Gain applicato in tempo reale** nel callback audio, non a fine registrazione
+- Dopo 3s: se audio < 300 → calcola gain automatico (max 10x)
+- Applica gain immediatamente a `volume_multiplier`
+- Widget mostra notifica: "🔊 Auto-gain applied: 1.0x → 5.2x"
+- **Salva automaticamente** nuovo gain in config.json per registrazioni future
+- Elimina necessità di calibrazione manuale per la maggior parte degli utenti
+
+### 2. Hotkey Capture Fix (NEW in v1.2)
+**File**: `src/ui/settings_window.py` (linee 113-124)
+- **Fix**: usa `key.name` (tasto fisico) invece di `key.char` (carattere generato)
+- Previene cattura caratteri sbagliati (es. ctrl-shift-d → '~')
+- Ora cattura correttamente il tasto fisico indipendentemente dai modificatori
+
+### 3. Bug Fixes v1.2
+**API Key Persistence**: `src/core/config_manager.py` (linee 115-138)
+- Migliorato fallback decryption: DPAPI → base64 → plaintext
+- Previene perdita chiavi quando si passa da exe a dev mode
+
+**Recording Lock After Error**: `src/main.py` (linee 207-284)
+- Nuovo metodo `_cleanup_audio_recorder()` per cleanup completo stato
+- Chiude stream, svuota buffers, resetta flags
+- Previene blocco app dopo errore in registrazione
+
+**Tcl Threading Error**: `src/main.py` (linee 356-388)
+- Settings window aperta con `root.after()` nel thread principale
+- Fix "Calling Tcl from different apartment"
+
+**Hotkey Validation**: `src/ui/settings_window.py` (linee 496-515), `src/main.py` (linee 111-132)
+- Validazione hotkey non vuoto in save e register
+- Previene errore "Can only normalize non-empty string names"
+
+**API Connection Tests**: `src/ui/settings_window.py` (linee 488-594)
+- Implementati test connessione per Transcription (Groq/OpenAI/Deepgram)
+- Implementati test connessione per LLM (Groq/OpenAI/Ollama)
+- Verifica API keys prima di salvare
+
+### 4. Calibrazione Microfono Manuale (v1.1)
 **File**: `src/ui/settings_window.py` (linee 89-162, 239-295)
 - Pulsante "Test Microphone (5s)" nella tab Audio
 - Registra 5 secondi di audio, analizza livelli (avg/peak)
@@ -291,23 +329,23 @@ pyinstaller VoiceDictation.spec
 - Applica automaticamente al slider volume gain
 - Threading per non bloccare UI durante test
 
-### 2. Auto-Stop su Silenzio
-**File**: `src/core/audio_recorder.py` (linee 44-86), `src/main.py` (linee 156-181)
+### 5. Auto-Stop su Silenzio (v1.1)
+**File**: `src/core/audio_recorder.py` (linee 44-86), `src/main.py` (linee 162-213)
 - Silenzio rilevato con `threshold=300` (audio_level < 300)
 - Traccia `last_audio_time` aggiornato in audio callback
 - Loop registrazione controlla ogni 0.1s con `get_silence_duration()`
 - Se silenzio > 60s → auto-stop e processa audio
 - Previene registrazioni infinite se utente dimentica di stoppare
 
-### 3. Personalizzazione Hotkey con Cattura
-**File**: `src/ui/settings_window.py` (linee 164-250)
+### 6. Personalizzazione Hotkey con Cattura (v1.1)
+**File**: `src/ui/settings_window.py` (linee 89-162)
 - Pulsante "Capture" nella tab Hotkey
 - Usa `pynput.keyboard.Listener` per catturare combinazione tasti
 - Rileva modifiers (ctrl, shift, alt, win) e key premuta
 - Aggiorna entry con formato "ctrl+shift+key"
 - Threading per non bloccare UI durante cattura
 
-### 4. Formattazione Automatica Avanzata
+### 7. Formattazione Automatica Avanzata (v1.1)
 **File**: `src/providers/llm/base.py` (linee 7-46)
 - Prompt LLM potenziato con structure recognition
 - Riconosce liste (bullet/numbered) quando utente dice "first", "second", etc.
@@ -323,7 +361,7 @@ pyinstaller VoiceDictation.spec
 - WAV file cleanup: mantiene ultimi 10 recordings
 - Save/Cancel buttons con `height=2` per usabilità
 
-### 5. Riorganizzazione Struttura Progetto (v1.2)
+### 8. Riorganizzazione Struttura Progetto (v1.2)
 **File eliminati** (utility temporanee):
 - `output.log`, `test_output.log` - log vuoti
 - `conversazione esportata.txt` - file sviluppo
