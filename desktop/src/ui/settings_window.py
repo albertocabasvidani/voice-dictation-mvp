@@ -46,8 +46,8 @@ class SettingsWindow:
         btn_frame = tk.Frame(self.window)
         btn_frame.pack(fill='x', padx=10, pady=10)
 
-        tk.Button(btn_frame, text="Save", command=self._save, width=15, height=2).pack(side='right', padx=5)
-        tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15, height=2).pack(side='right')
+        tk.Button(btn_frame, text="Save", command=self._save, width=15, height=3).pack(side='right', padx=5)
+        tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15, height=3).pack(side='right')
 
         self.window.protocol("WM_DELETE_WINDOW", self._cancel)
         self.window.mainloop()
@@ -120,12 +120,23 @@ class SettingsWindow:
                         if key.name.isalnum() or key.name in ['space', 'enter', 'tab', 'backspace']:
                             key_str = key.name.lower()
 
-                    # Method 2: Fallback to key.char if name failed
-                    if not key_str and hasattr(key, 'char') and key.char:
-                        if key.char.isprintable():
-                            key_str = key.char.lower()
+                    # Method 2: Only use key.char if NO modifiers are pressed
+                    # (modifiers alter the character, so char is unreliable)
+                    if not key_str and not captured_modifiers:
+                        if hasattr(key, 'char') and key.char:
+                            if key.char.isprintable() and len(key.char) == 1:
+                                key_str = key.char.lower()
 
-                    # Method 3: Last resort - parse from str(key)
+                    # Method 3: Try vk (virtual key code) for Windows
+                    if not key_str and hasattr(key, 'vk'):
+                        # Map common vk codes to key names (A-Z = 65-90)
+                        vk = key.vk
+                        if 65 <= vk <= 90:  # A-Z
+                            key_str = chr(vk).lower()
+                        elif 48 <= vk <= 57:  # 0-9
+                            key_str = chr(vk)
+
+                    # Method 4: Last resort - parse from str(key)
                     if not key_str:
                         key_repr = str(key).lower()
                         # Extract from format like "<65>" or "Key.some_key"
@@ -133,6 +144,9 @@ class SettingsWindow:
                             key_str = key_repr.split('key.')[-1].rstrip('>')
                         elif key_repr.startswith("'") and key_repr.endswith("'"):
                             key_str = key_repr.strip("'")
+                            # Only accept if single char and alphanumeric
+                            if len(key_str) != 1 or not (key_str.isalnum()):
+                                key_str = None
 
                     if key_str:
                         captured_keys.add(key_str)
