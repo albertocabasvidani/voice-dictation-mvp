@@ -229,18 +229,28 @@ class VoiceDictationApp:
         self.system_tray.set_recording(False)
         self.system_tray.set_status("Cancelled")
 
-        # Hide recording widget
-        if self.recording_widget:
-            self.recording_widget.hide()
-            self.recording_widget = None
+        try:
+            # Hide recording widget
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
 
-        # Wait for recording thread
-        if self.recording_thread:
-            self.recording_thread.join(timeout=1)
+            # Wait for recording thread
+            if self.recording_thread:
+                self.recording_thread.join(timeout=1)
 
-        # Clear recording data without processing
-        self.audio_recorder.recording = []
-        print("Recording discarded")
+            # CRITICAL: Clean up audio recorder properly
+            self._cleanup_audio_recorder()
+
+            print("Recording discarded")
+        except Exception as e:
+            print(f"Error during cancel: {e}")
+            # Force cleanup even if error
+            self._cleanup_audio_recorder()
+        finally:
+            # Reset state to allow new recordings
+            self.is_recording = False
+            self.is_cancelled = False
 
     def _stop_recording(self):
         """Stop recording and process audio"""
@@ -393,30 +403,41 @@ class VoiceDictationApp:
 
     def _show_settings(self):
         """Show settings window (safe for cross-thread calls)"""
+        # Prevent opening settings during recording
+        if self.is_recording:
+            print("Cannot open settings during recording")
+            self.system_tray.notify("Settings", "Cannot open settings during recording. Stop or cancel first.")
+            return
+
         def open_settings_window():
             """Open settings in tkinter main thread"""
-            def on_save(new_config):
-                self.config = new_config
+            try:
+                def on_save(new_config):
+                    self.config = new_config
 
-                # Reload text processor with new config
-                self.text_processor.reload_config(new_config)
+                    # Reload text processor with new config
+                    self.text_processor.reload_config(new_config)
 
-                # Recreate audio recorder with new settings
-                audio_config = new_config.get('audio', {})
-                self.audio_recorder = AudioRecorder(
-                    sample_rate=audio_config.get('sample_rate', 16000),
-                    device_index=audio_config.get('device_index', -1),
-                    max_gain=audio_config.get('volume_gain', 1.0)
-                )
+                    # Recreate audio recorder with new settings
+                    audio_config = new_config.get('audio', {})
+                    self.audio_recorder = AudioRecorder(
+                        sample_rate=audio_config.get('sample_rate', 16000),
+                        device_index=audio_config.get('device_index', -1),
+                        max_gain=audio_config.get('volume_gain', 1.0)
+                    )
 
-                # Re-register hotkey
-                self.hotkey_manager.unregister_all()
-                self._register_hotkey()
+                    # Re-register hotkey
+                    self.hotkey_manager.unregister_all()
+                    self._register_hotkey()
 
-                print("Configuration reloaded")
+                    print("Configuration reloaded")
 
-            settings = SettingsWindow(self.config, self.config_manager, on_save=on_save, root=self.root)
-            settings.show()
+                settings = SettingsWindow(self.config, self.config_manager, on_save=on_save, root=self.root)
+                settings.show()
+            except Exception as e:
+                print(f"Error opening settings: {e}")
+                import traceback
+                traceback.print_exc()
 
         # Schedule settings window to open in tkinter main thread
         if self.root:

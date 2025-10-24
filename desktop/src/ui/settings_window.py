@@ -29,7 +29,7 @@ class SettingsWindow:
         # Use Toplevel if root provided, otherwise create new Tk
         self.window = tk.Toplevel(self.root) if self.root else tk.Tk()
         self.window.title("Voice Dictation Settings")
-        self.window.geometry("600x500")
+        self.window.geometry("600x550")  # Increased height for better spacing
 
         # Create notebook (tabs)
         notebook = ttk.Notebook(self.window)
@@ -42,12 +42,16 @@ class SettingsWindow:
         self._create_llm_tab(notebook)
         self._create_advanced_tab(notebook)
 
-        # Buttons frame
+        # Buttons frame with more padding
         btn_frame = tk.Frame(self.window)
-        btn_frame.pack(fill='x', padx=10, pady=10)
+        btn_frame.pack(fill='x', padx=10, pady=15)
 
-        tk.Button(btn_frame, text="Save", command=self._save, width=15, height=3).pack(side='right', padx=5)
-        tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15, height=3).pack(side='right')
+        # Larger buttons with more padding
+        save_btn = tk.Button(btn_frame, text="Save", command=self._save, width=15, height=3, font=('Arial', 10))
+        save_btn.pack(side='right', padx=5, pady=5)
+
+        cancel_btn = tk.Button(btn_frame, text="Cancel", command=self._cancel, width=15, height=3, font=('Arial', 10))
+        cancel_btn.pack(side='right', pady=5)
 
         self.window.protocol("WM_DELETE_WINDOW", self._cancel)
         self.window.mainloop()
