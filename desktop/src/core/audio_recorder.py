@@ -47,10 +47,14 @@ class AudioRecorder:
         if status:
             print(f"Audio callback status: {status}")
 
-        # Put audio data in queue (copy to avoid issues)
-        self.audio_queue.put(indata.copy())
+        # Apply gain in real-time if needed
+        if self.volume_multiplier != 1.0:
+            amplified = np.clip(indata * self.volume_multiplier, -32767, 32767).astype(np.int16)
+            self.audio_queue.put(amplified.copy())
+        else:
+            self.audio_queue.put(indata.copy())
 
-        # Check if audio or silence
+        # Check if audio or silence (use original indata for detection)
         audio_level = np.abs(indata).mean()
         if audio_level > self.silence_threshold:
             self.last_audio_time = time.time()
@@ -111,29 +115,20 @@ class AudioRecorder:
         # Convert list of chunks to single array
         audio_data = np.concatenate(self.recording, axis=0)
 
-        # Log audio info
+        # Log audio info (gain already applied in real-time by callback)
         duration = len(audio_data) / self.sample_rate
         avg_level = np.abs(audio_data).mean()
         max_level = np.abs(audio_data).max()
         print(f"Audio recorded: {duration:.2f}s ({len(audio_data)} samples at {self.sample_rate}Hz)")
-        print(f"Audio levels BEFORE gain - Average: {avg_level:.1f}, Peak: {max_level:.1f} (max: 32767)")
+        print(f"Audio levels (with gain {self.volume_multiplier}x) - Average: {avg_level:.1f}, Peak: {max_level:.1f} (max: 32767)")
 
-        # Apply volume multiplier from settings (if != 1.0)
-        if self.volume_multiplier != 1.0:
-            print(f"Applying volume multiplier: {self.volume_multiplier}x")
-            audio_data = np.clip(audio_data * self.volume_multiplier, -32767, 32767).astype(np.int16)
-            new_avg = np.abs(audio_data).mean()
-            new_peak = np.abs(audio_data).max()
-            print(f"Audio levels AFTER gain - Average: {new_avg:.1f}, Peak: {new_peak:.1f}")
+        # Warning if audio is clipping
+        if max_level >= 32767:
+            print("WARNING: Audio is clipping! Reduce volume multiplier in settings.")
 
-            # Warning if audio is clipping
-            if new_peak >= 32767:
-                print("WARNING: Audio is clipping! Reduce volume multiplier in settings.")
-
-        # Warning if signal is very low even after amplification
-        final_avg = np.abs(audio_data).mean()
-        if final_avg < 500:
-            print(f"WARNING: Audio level very low ({final_avg:.1f}) - increase volume multiplier in settings")
+        # Warning if signal is very low
+        if avg_level < 500:
+            print(f"WARNING: Audio level very low ({avg_level:.1f}) - increase volume multiplier in settings")
 
         # Convert to WAV bytes
         wav_bytes = self._to_wav_bytes(audio_data)

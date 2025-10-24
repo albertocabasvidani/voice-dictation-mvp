@@ -111,10 +111,12 @@ class SettingsWindow:
                     captured_modifiers.add('win')
                 else:
                     # Regular key pressed - capture and stop
-                    if hasattr(key, 'char') and key.char:
-                        captured_keys.add(key.char.lower())
-                    elif hasattr(key, 'name'):
+                    # Always use key.name to get physical key (not affected by shift/modifiers)
+                    if hasattr(key, 'name'):
                         captured_keys.add(key.name.lower())
+                    elif hasattr(key, 'char') and key.char:
+                        # Fallback for keys without name
+                        captured_keys.add(key.char.lower())
 
                     # Stop capturing after first non-modifier key
                     if captured_keys:

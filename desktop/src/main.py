@@ -78,7 +78,7 @@ class VoiceDictationApp:
             self.audio_recorder = AudioRecorder(
                 sample_rate=audio_config.get('sample_rate', 16000),
                 device_index=audio_config.get('device_index', -1),
-                max_gain=audio_config.get('volume_gain', 1000)
+                max_gain=audio_config.get('volume_gain', 1.0)
             )
             print("  [OK] Audio recorder loaded")
 
@@ -162,7 +162,7 @@ class VoiceDictationApp:
     def _record_loop(self):
         """Record audio in loop until stopped"""
         silence_timeout = 60.0  # Auto-stop after 60 seconds of silence
-        low_audio_warning_shown = False
+        auto_gain_applied = False
         chunks_recorded = 0
 
         while self.is_recording:
@@ -170,18 +170,34 @@ class VoiceDictationApp:
                 self.audio_recorder.record_chunk(duration=0.1)
                 chunks_recorded += 1
 
-                # Check audio level after first 3 seconds (~30 chunks)
-                if chunks_recorded == 30 and not low_audio_warning_shown:
+                # Auto-gain: Check audio level after first 3 seconds (~30 chunks)
+                if chunks_recorded == 30 and not auto_gain_applied:
                     audio_level = self.audio_recorder.get_recent_audio_level()
                     if audio_level < 300 and audio_level > 0:  # Very low but not silent
-                        # Show warning in widget
+                        # Calculate suggested gain
+                        target_avg = 2000
+                        suggested_gain = min(10.0, target_avg / (audio_level + 1))
+                        suggested_gain = round(suggested_gain, 1)
+
+                        # Apply gain immediately (affects future chunks via callback)
+                        old_gain = self.audio_recorder.volume_multiplier
+                        self.audio_recorder.volume_multiplier = suggested_gain
+
+                        # Show notification in widget
                         if self.recording_widget:
                             self.recording_widget.update_status(
-                                status=f"⚠ Audio very low ({audio_level:.0f}) - Increase gain in settings!",
+                                status=f"🔊 Auto-gain applied: {old_gain}x → {suggested_gain}x",
                                 stop_animation=True
                             )
-                        low_audio_warning_shown = True
-                        print(f"WARNING: Audio level very low ({audio_level:.1f}) - consider increasing gain")
+
+                        print(f"AUTO-GAIN: Audio level low ({audio_level:.1f}), applied gain {suggested_gain}x")
+
+                        # Save new gain to config
+                        self.config['audio']['volume_gain'] = suggested_gain
+                        self.config_manager.save(self.config)
+                        print(f"Saved new gain {suggested_gain}x to config")
+
+                        auto_gain_applied = True
 
                 # Check for silence timeout
                 silence_duration = self.audio_recorder.get_silence_duration()
@@ -390,7 +406,7 @@ class VoiceDictationApp:
                 self.audio_recorder = AudioRecorder(
                     sample_rate=audio_config.get('sample_rate', 16000),
                     device_index=audio_config.get('device_index', -1),
-                    max_gain=audio_config.get('volume_gain', 1000)
+                    max_gain=audio_config.get('volume_gain', 1.0)
                 )
 
                 # Re-register hotkey
