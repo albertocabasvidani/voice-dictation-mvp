@@ -114,6 +114,12 @@ class VoiceDictationApp:
         modifiers = hotkey_config.get('modifiers', ['ctrl', 'shift'])
         key = hotkey_config.get('key', 'space')
 
+        # Validate modifiers is a list
+        if not isinstance(modifiers, list):
+            print(f"Warning: modifiers is not a list: {modifiers}, using default ['ctrl', 'shift']")
+            modifiers = ['ctrl', 'shift']
+            self.config['hotkey']['modifiers'] = modifiers
+
         # Validate key is not empty
         if not key or key.strip() == '':
             print("Error: Hotkey key is empty, using default 'space'")
@@ -121,15 +127,18 @@ class VoiceDictationApp:
             self.config['hotkey']['key'] = 'space'
 
         try:
+            print(f"Attempting to register hotkey: {'+'.join(modifiers + [key])}")
             self.hotkey_manager.register(modifiers, key, self._toggle_recording)
-            print(f"Hotkey registered: {'+'.join(modifiers + [key])}")
+            print(f"✓ Hotkey registered successfully: {'+'.join(modifiers + [key])}")
 
             # Register ESC to cancel recording
             self.hotkey_manager.register([], 'esc', self._cancel_recording)
-            print("ESC registered to cancel recording")
+            print("✓ ESC registered to cancel recording")
         except Exception as e:
-            print(f"Failed to register hotkey: {e}")
+            print(f"✗ Failed to register hotkey: {e}")
             print("Make sure to run as administrator on Windows")
+            import traceback
+            traceback.print_exc()
 
     def _toggle_recording(self):
         """Toggle recording on/off"""
@@ -426,8 +435,10 @@ class VoiceDictationApp:
                         max_gain=audio_config.get('volume_gain', 1.0)
                     )
 
-                    # Re-register hotkey
+                    # Re-register hotkey with delay to avoid race condition
+                    print("Re-registering hotkeys...")
                     self.hotkey_manager.unregister_all()
+                    time.sleep(0.2)  # Give system time to release old hotkeys
                     self._register_hotkey()
 
                     print("Configuration reloaded")

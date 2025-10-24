@@ -21,20 +21,25 @@ class HotkeyManager:
         hotkey_str = '+'.join(modifiers + [key]).lower()
 
         try:
+            print(f"[HotkeyManager] Registering: {hotkey_str}")
             keyboard.add_hotkey(hotkey_str, callback, suppress=False)
             self.registered_hotkeys.append(hotkey_str)
-            print(f"Registered hotkey: {hotkey_str}")
+            print(f"[HotkeyManager] ✓ Registered: {hotkey_str}")
         except Exception as e:
+            print(f"[HotkeyManager] ✗ Failed to register '{hotkey_str}': {str(e)}")
             raise Exception(f"Failed to register hotkey '{hotkey_str}': {str(e)}")
 
     def unregister_all(self):
         """Unregister all registered hotkeys"""
+        print(f"[HotkeyManager] Unregistering {len(self.registered_hotkeys)} hotkeys...")
         for hotkey_str in self.registered_hotkeys:
             try:
                 keyboard.remove_hotkey(hotkey_str)
-            except:
-                pass
+                print(f"[HotkeyManager] ✓ Unregistered: {hotkey_str}")
+            except Exception as e:
+                print(f"[HotkeyManager] ✗ Failed to unregister '{hotkey_str}': {e}")
         self.registered_hotkeys.clear()
+        print(f"[HotkeyManager] All hotkeys cleared")
 
     def is_pressed(self, key: str) -> bool:
         """Check if a key is currently pressed"""
