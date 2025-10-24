@@ -19,6 +19,7 @@ class AudioRecorder:
         self.audio_queue = queue.Queue()
         self.last_audio_time = None  # Track last time audio was detected
         self.silence_threshold = 300  # Below this level is considered silence
+        self.recent_audio_level = 0  # Track recent audio level for warnings
 
         # Log ALL devices and select best one
         try:
@@ -155,14 +156,19 @@ class AudioRecorder:
                 except queue.Empty:
                     break
 
-            # Log audio level periodically
+            # Log audio level periodically and update recent level
             if collected_any and len(self.recording) % 10 == 0:
                 last_chunk = self.recording[-1]
                 volume = np.abs(last_chunk).mean()
+                self.recent_audio_level = volume
                 print(f"Audio level: {volume:.1f} (chunks: {len(self.recording)})")
 
         except Exception as e:
             raise Exception(f"Audio recording failed: {str(e)}")
+
+    def get_recent_audio_level(self) -> float:
+        """Get recent audio level for monitoring"""
+        return self.recent_audio_level
 
     def record_blocking(self, duration: float = 5.0) -> bytes:
         """Record audio for a fixed duration (blocking)"""

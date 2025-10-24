@@ -487,17 +487,121 @@ class SettingsWindow:
 
     def _test_transcription(self):
         """Test transcription API connection"""
-        messagebox.showinfo("Test", "Transcription test not implemented in settings window.\nTest will occur during actual use.")
+        import threading
+        import requests
+
+        def test_api():
+            try:
+                # Get API key from entry
+                api_key = self.trans_api_key_entry.get().strip()
+                if not api_key:
+                    messagebox.showerror("Error", "Please enter an API key first")
+                    return
+
+                provider = self.trans_provider_var.get()
+
+                # Test based on provider
+                if provider == 'groq':
+                    url = "https://api.groq.com/openai/v1/models"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    response = requests.get(url, headers=headers, timeout=5)
+                elif provider == 'openai':
+                    url = "https://api.openai.com/v1/models"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    response = requests.get(url, headers=headers, timeout=5)
+                elif provider == 'deepgram':
+                    url = "https://api.deepgram.com/v1/projects"
+                    headers = {"Authorization": f"Token {api_key}"}
+                    response = requests.get(url, headers=headers, timeout=5)
+                else:
+                    messagebox.showerror("Error", f"Unknown provider: {provider}")
+                    return
+
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", f"{provider.capitalize()} API key is valid!")
+                elif response.status_code == 401:
+                    messagebox.showerror("Error", "Invalid API key - authentication failed")
+                else:
+                    messagebox.showwarning("Warning", f"Unexpected response: {response.status_code}\n{response.text[:100]}")
+
+            except requests.exceptions.Timeout:
+                messagebox.showerror("Error", "Connection timeout - check your internet")
+            except Exception as e:
+                messagebox.showerror("Error", f"Test failed: {str(e)}")
+
+        # Run in thread
+        thread = threading.Thread(target=test_api, daemon=True)
+        thread.start()
 
     def _test_llm(self):
         """Test LLM API connection"""
-        messagebox.showinfo("Test", "LLM test not implemented in settings window.\nTest will occur during actual use.")
+        import threading
+        import requests
+
+        def test_api():
+            try:
+                provider = self.llm_provider_var.get()
+
+                # Ollama test
+                if provider == 'ollama':
+                    url = self.ollama_url_entry.get().strip() or "http://localhost:11434"
+                    try:
+                        response = requests.get(f"{url}/api/tags", timeout=3)
+                        if response.status_code == 200:
+                            models = response.json().get('models', [])
+                            if models:
+                                messagebox.showinfo("Success", f"Ollama is running!\nFound {len(models)} models")
+                            else:
+                                messagebox.showwarning("Warning", "Ollama is running but no models found.\nRun 'ollama pull llama3.2:3b' to install a model.")
+                        else:
+                            messagebox.showerror("Error", f"Ollama responded with status {response.status_code}")
+                    except requests.exceptions.ConnectionError:
+                        messagebox.showerror("Error", "Cannot connect to Ollama.\nMake sure Ollama is running: 'ollama serve'")
+                    return
+
+                # Cloud LLM test (OpenAI, Groq)
+                api_key = self.llm_api_key_entry.get().strip()
+                if not api_key:
+                    messagebox.showerror("Error", "Please enter an API key first")
+                    return
+
+                if provider == 'groq':
+                    url = "https://api.groq.com/openai/v1/models"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    response = requests.get(url, headers=headers, timeout=5)
+                elif provider == 'openai':
+                    url = "https://api.openai.com/v1/models"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    response = requests.get(url, headers=headers, timeout=5)
+                else:
+                    messagebox.showerror("Error", f"Unknown provider: {provider}")
+                    return
+
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", f"{provider.capitalize()} API key is valid!")
+                elif response.status_code == 401:
+                    messagebox.showerror("Error", "Invalid API key - authentication failed")
+                else:
+                    messagebox.showwarning("Warning", f"Unexpected response: {response.status_code}\n{response.text[:100]}")
+
+            except requests.exceptions.Timeout:
+                messagebox.showerror("Error", "Connection timeout - check your internet")
+            except Exception as e:
+                messagebox.showerror("Error", f"Test failed: {str(e)}")
+
+        # Run in thread
+        thread = threading.Thread(target=test_api, daemon=True)
+        thread.start()
 
     def _save(self):
         """Save configuration"""
         # Update config from UI
         # Hotkey
         hotkey_str = self.hotkey_entry.get().strip().lower()
+        if not hotkey_str or hotkey_str == "no keys captured" or hotkey_str == "waiting...":
+            messagebox.showerror("Error", "Please configure a valid hotkey before saving.")
+            return
+
         parts = hotkey_str.split('+')
         if len(parts) > 1:
             self.config['hotkey'] = {
@@ -507,7 +611,7 @@ class SettingsWindow:
         else:
             self.config['hotkey'] = {
                 'modifiers': [],
-                'key': parts[0]
+                'key': parts[0] if parts[0] else 'space'
             }
 
         # Transcription

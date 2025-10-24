@@ -113,25 +113,28 @@ class ConfigManager:
             raise Exception(f"Failed to encrypt API key: {str(e)}")
 
     def decrypt_api_key(self, encrypted_key: str) -> str:
-        """Decrypt API key using Windows DPAPI"""
+        """Decrypt API key using Windows DPAPI or base64 fallback"""
         if not encrypted_key:
             return ""
 
-        if not DPAPI_AVAILABLE:
-            # Fallback: just base64 decode
+        # Try DPAPI decryption first (if available)
+        if DPAPI_AVAILABLE:
             try:
-                return base64.b64decode(encrypted_key).decode('utf-8')
-            except:
-                return encrypted_key  # Return as-is if not base64
+                encrypted_bytes = base64.b64decode(encrypted_key)
+                _, plaintext_bytes = win32crypt.CryptUnprotectData(
+                    encrypted_bytes, None, None, None, 0
+                )
+                return plaintext_bytes.decode('utf-8')
+            except Exception as e:
+                # DPAPI failed, try base64 fallback
+                print(f"DPAPI decrypt failed ({e}), trying base64 fallback...")
 
+        # Fallback: try base64 decode (for keys encrypted without DPAPI)
         try:
-            encrypted_bytes = base64.b64decode(encrypted_key)
-            _, plaintext_bytes = win32crypt.CryptUnprotectData(
-                encrypted_bytes, None, None, None, 0
-            )
-            return plaintext_bytes.decode('utf-8')
+            return base64.b64decode(encrypted_key).decode('utf-8')
         except Exception:
-            # If decryption fails, assume it's plaintext (for backward compatibility)
+            # If all fails, return as-is (might be plaintext for backward compatibility)
+            print(f"Warning: Could not decrypt API key, returning as-is")
             return encrypted_key
 
     def get_transcription_api_key(self) -> str:

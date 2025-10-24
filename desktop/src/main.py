@@ -114,6 +114,12 @@ class VoiceDictationApp:
         modifiers = hotkey_config.get('modifiers', ['ctrl', 'shift'])
         key = hotkey_config.get('key', 'space')
 
+        # Validate key is not empty
+        if not key or key.strip() == '':
+            print("Error: Hotkey key is empty, using default 'space'")
+            key = 'space'
+            self.config['hotkey']['key'] = 'space'
+
         try:
             self.hotkey_manager.register(modifiers, key, self._toggle_recording)
             print(f"Hotkey registered: {'+'.join(modifiers + [key])}")
@@ -156,10 +162,26 @@ class VoiceDictationApp:
     def _record_loop(self):
         """Record audio in loop until stopped"""
         silence_timeout = 60.0  # Auto-stop after 60 seconds of silence
+        low_audio_warning_shown = False
+        chunks_recorded = 0
 
         while self.is_recording:
             try:
                 self.audio_recorder.record_chunk(duration=0.1)
+                chunks_recorded += 1
+
+                # Check audio level after first 3 seconds (~30 chunks)
+                if chunks_recorded == 30 and not low_audio_warning_shown:
+                    audio_level = self.audio_recorder.get_recent_audio_level()
+                    if audio_level < 300 and audio_level > 0:  # Very low but not silent
+                        # Show warning in widget
+                        if self.recording_widget:
+                            self.recording_widget.update_status(
+                                status=f"⚠ Audio very low ({audio_level:.0f}) - Increase gain in settings!",
+                                stop_animation=True
+                            )
+                        low_audio_warning_shown = True
+                        print(f"WARNING: Audio level very low ({audio_level:.1f}) - consider increasing gain")
 
                 # Check for silence timeout
                 silence_duration = self.audio_recorder.get_silence_duration()
@@ -213,27 +235,29 @@ class VoiceDictationApp:
         self.is_recording = False
         self.system_tray.set_recording(False)
 
-        # Update widget to show processing (don't hide)
-        if self.recording_widget:
-            self.recording_widget.update_status(
-                title="Processing",
-                status="Preparing audio...",
-                stop_animation=True
-            )
-
-        # Wait for recording thread
-        if self.recording_thread:
-            self.recording_thread.join(timeout=1)
-
-        # Check if cancelled
-        if self.is_cancelled:
-            self.system_tray.set_status("Ready")
-            if self.recording_widget:
-                self.recording_widget.hide()
-                self.recording_widget = None
-            return
-
         try:
+            # Update widget to show processing (don't hide)
+            if self.recording_widget:
+                self.recording_widget.update_status(
+                    title="Processing",
+                    status="Preparing audio...",
+                    stop_animation=True
+                )
+
+            # Wait for recording thread
+            if self.recording_thread:
+                self.recording_thread.join(timeout=1)
+
+            # Check if cancelled
+            if self.is_cancelled:
+                self.system_tray.set_status("Ready")
+                if self.recording_widget:
+                    self.recording_widget.hide()
+                    self.recording_widget = None
+                # Clean up audio recorder state
+                self._cleanup_audio_recorder()
+                return
+
             # Get audio data
             audio_data = self.audio_recorder.stop_recording()
 
@@ -246,13 +270,40 @@ class VoiceDictationApp:
             processing_thread.start()
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error stopping recording: {e}")
             self.system_tray.set_status("Error!")
             self.system_tray.notify("Error", str(e))
             # Hide widget on error
             if self.recording_widget:
                 self.recording_widget.hide()
                 self.recording_widget = None
+            # Critical: ensure audio recorder is cleaned up
+            self._cleanup_audio_recorder()
+            # Reset state to allow new recordings
+            self.is_recording = False
+            self.is_cancelled = False
+
+    def _cleanup_audio_recorder(self):
+        """Ensure audio recorder is fully cleaned up"""
+        try:
+            if self.audio_recorder:
+                # Stop stream if still running
+                if self.audio_recorder.stream:
+                    self.audio_recorder.stream.stop()
+                    self.audio_recorder.stream.close()
+                    self.audio_recorder.stream = None
+                # Clear recording buffer
+                self.audio_recorder.recording = []
+                self.audio_recorder.is_recording = False
+                # Clear queue
+                while not self.audio_recorder.audio_queue.empty():
+                    try:
+                        self.audio_recorder.audio_queue.get_nowait()
+                    except:
+                        break
+                print("Audio recorder cleaned up")
+        except Exception as e:
+            print(f"Error cleaning up audio recorder: {e}")
 
     def _process_audio(self, audio_data: bytes):
         """Process audio data through pipeline"""
@@ -306,6 +357,9 @@ class VoiceDictationApp:
 
         except Exception as e:
             print(f"Processing error: {e}")
+            import traceback
+            traceback.print_exc()
+
             self.system_tray.set_status("Error!")
             self.system_tray.notify("Error", str(e))
 
@@ -314,30 +368,46 @@ class VoiceDictationApp:
                 self.recording_widget.hide()
                 self.recording_widget = None
 
+            # Ensure audio recorder is cleaned up after error
+            self._cleanup_audio_recorder()
+
+            # Reset state to allow new recordings
+            self.is_recording = False
+            self.is_cancelled = False
+
     def _show_settings(self):
-        """Show settings window"""
-        def on_save(new_config):
-            self.config = new_config
+        """Show settings window (safe for cross-thread calls)"""
+        def open_settings_window():
+            """Open settings in tkinter main thread"""
+            def on_save(new_config):
+                self.config = new_config
 
-            # Reload text processor with new config
-            self.text_processor.reload_config(new_config)
+                # Reload text processor with new config
+                self.text_processor.reload_config(new_config)
 
-            # Recreate audio recorder with new settings
-            audio_config = new_config.get('audio', {})
-            self.audio_recorder = AudioRecorder(
-                sample_rate=audio_config.get('sample_rate', 16000),
-                device_index=audio_config.get('device_index', -1),
-                max_gain=audio_config.get('volume_gain', 1000)
-            )
+                # Recreate audio recorder with new settings
+                audio_config = new_config.get('audio', {})
+                self.audio_recorder = AudioRecorder(
+                    sample_rate=audio_config.get('sample_rate', 16000),
+                    device_index=audio_config.get('device_index', -1),
+                    max_gain=audio_config.get('volume_gain', 1000)
+                )
 
-            # Re-register hotkey
-            self.hotkey_manager.unregister_all()
-            self._register_hotkey()
+                # Re-register hotkey
+                self.hotkey_manager.unregister_all()
+                self._register_hotkey()
 
-            print("Configuration reloaded")
+                print("Configuration reloaded")
 
-        settings = SettingsWindow(self.config, self.config_manager, on_save=on_save, root=self.root)
-        settings.show()
+            settings = SettingsWindow(self.config, self.config_manager, on_save=on_save, root=self.root)
+            settings.show()
+
+        # Schedule settings window to open in tkinter main thread
+        if self.root:
+            self.root.after(0, open_settings_window)
+        else:
+            # Fallback if root not available yet
+            open_settings_window()
 
     def _exit(self):
         """Exit application"""
