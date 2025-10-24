@@ -111,12 +111,31 @@ class SettingsWindow:
                     captured_modifiers.add('win')
                 else:
                     # Regular key pressed - capture and stop
-                    # Always use key.name to get physical key (not affected by shift/modifiers)
-                    if hasattr(key, 'name'):
-                        captured_keys.add(key.name.lower())
-                    elif hasattr(key, 'char') and key.char:
-                        # Fallback for keys without name
-                        captured_keys.add(key.char.lower())
+                    # Try multiple methods to get a clean key name
+                    key_str = None
+
+                    # Method 1: Try key.name (best for physical keys)
+                    if hasattr(key, 'name') and key.name:
+                        # Filter out non-alphanumeric weird names
+                        if key.name.isalnum() or key.name in ['space', 'enter', 'tab', 'backspace']:
+                            key_str = key.name.lower()
+
+                    # Method 2: Fallback to key.char if name failed
+                    if not key_str and hasattr(key, 'char') and key.char:
+                        if key.char.isprintable():
+                            key_str = key.char.lower()
+
+                    # Method 3: Last resort - parse from str(key)
+                    if not key_str:
+                        key_repr = str(key).lower()
+                        # Extract from format like "<65>" or "Key.some_key"
+                        if 'key.' in key_repr:
+                            key_str = key_repr.split('key.')[-1].rstrip('>')
+                        elif key_repr.startswith("'") and key_repr.endswith("'"):
+                            key_str = key_repr.strip("'")
+
+                    if key_str:
+                        captured_keys.add(key_str)
 
                     # Stop capturing after first non-modifier key
                     if captured_keys:
