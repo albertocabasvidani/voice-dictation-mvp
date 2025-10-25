@@ -72,17 +72,51 @@ class AudioRecorder:
             except queue.Empty:
                 break
 
-        # Start continuous stream
-        self.stream = sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            dtype='int16',
-            device=self.device_index,
-            callback=self._audio_callback,
-            blocksize=1600  # ~0.1 seconds at 16000 Hz
-        )
-        self.stream.start()
-        print("Audio stream started")
+        # Start continuous stream with error handling
+        try:
+            # Try mono first (preferred)
+            print(f"Attempting to open audio stream: device={self.device_index}, channels=1 (mono)")
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype='int16',
+                device=self.device_index,
+                callback=self._audio_callback,
+                blocksize=1600  # ~0.1 seconds at 16000 Hz
+            )
+            self.stream.start()
+            print("✓ Audio stream started (mono)")
+        except Exception as e:
+            print(f"✗ Failed to open mono stream: {e}")
+            # Fallback: try stereo and convert to mono in callback
+            try:
+                print(f"Attempting stereo fallback: device={self.device_index}, channels=2")
+                self.stream = sd.InputStream(
+                    samplerate=self.sample_rate,
+                    channels=2,  # Stereo
+                    dtype='int16',
+                    device=self.device_index,
+                    callback=lambda indata, frames, time_info, status: self._audio_callback(
+                        indata[:, 0].reshape(-1, 1),  # Convert stereo to mono (left channel)
+                        frames, time_info, status
+                    ),
+                    blocksize=1600
+                )
+                self.stream.start()
+                print("✓ Audio stream started (stereo → mono conversion)")
+            except Exception as e2:
+                print(f"✗ Failed to open stereo stream: {e2}")
+                self.is_recording = False
+                raise Exception(
+                    f"Failed to open audio device.\n\n"
+                    f"Device: {self.device_index}\n"
+                    f"Mono error: {str(e)}\n"
+                    f"Stereo error: {str(e2)}\n\n"
+                    f"Try:\n"
+                    f"1. Select a different microphone in Settings\n"
+                    f"2. Close other apps using the microphone\n"
+                    f"3. Restart the app"
+                )
 
     def get_silence_duration(self) -> float:
         """Get seconds since last audio detected"""
