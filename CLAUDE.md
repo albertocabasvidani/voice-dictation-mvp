@@ -319,7 +319,23 @@ pyinstaller VoiceDictation.spec
 - Ora rimuove SOLO hesitation sounds: um, uh, eh, ehm, mm, hmm, ah
 - Esempi conservativi aggiunti (es. "ok niente facciamo..." → "Ok, niente, facciamo...")
 
-### 7. Bug Fixes v1.2
+### 7. Settings Save Without Hotkey Re-capture (v1.2.1)
+**File**: `src/ui/settings_window.py` (linee 641-657)
+- **Problema**: Cambiare audio gain o LLM provider richiedeva ri-cattura hotkey
+- **Fix**: Se hotkey entry è invalida ("waiting..."/"no keys"), mantiene hotkey esistente
+- Ora puoi salvare modifiche audio/LLM senza toccare hotkey
+
+### 8. Audio Stream Error Handling (v1.2.1)
+**File**: `src/core/audio_recorder.py` (linee 75-119)
+- **Problema**: PortAudioError "Invalid number of channels" crashava app
+- **Cause**: Device non supporta mono, device occupato, disconnesso
+- **Fix robusto**:
+  1. Tenta mono (preferito)
+  2. Fallback stereo → conversione mono real-time (canale sinistro)
+  3. Errore chiaro con troubleshooting steps se entrambi falliscono
+- Logging dettagliato: `✓ mono`, `✓ stereo → mono`, `✗ failed`
+
+### 9. Bug Fixes v1.2
 **API Key Persistence**: `src/core/config_manager.py` (linee 115-138)
 - Migliorato fallback decryption: DPAPI → base64 → plaintext
 - Previene perdita chiavi quando si passa da exe a dev mode
@@ -366,14 +382,13 @@ pyinstaller VoiceDictation.spec
 - Aggiorna entry con formato "ctrl+shift+key"
 - Threading per non bloccare UI durante cattura
 
-### 7. Formattazione Automatica Avanzata (v1.1)
-**File**: `src/providers/llm/base.py` (linee 7-46)
-- Prompt LLM potenziato con structure recognition
-- Riconosce liste (bullet/numbered) quando utente dice "first", "second", etc.
-- Identifica paragrafi (line breaks tra topic diversi)
-- Formatta codice con backticks quando menziona "function", "class", etc.
-- Titoli tra virgolette quando utente dice "title", "titolo"
-- **CRITICAL rule**: LLM non deve mai aggiungere note proprie
+### 7. LLM Post-Processing (v1.1 → v1.2.1 SIMPLIFIED)
+**File**: `src/providers/llm/base.py` (linee 7-42)
+- **v1.1**: Prompt complesso con structure recognition (liste, codice, titoli)
+- **v1.2.1**: Semplificato a "punctuation bot" - SOLO punteggiatura
+- **Motivo cambio**: LLM rispondeva a domande invece di punteggiare (es. "bisogna trovare modo di..." generava guida Playwright)
+- **Ora**: Rimuove SOLO hesitation sounds (um, uh, eh), aggiunge punteggiatura base
+- NO formattazione avanzata, NO risposte, NO espansioni
 
 **Altri Fix v1.1**:
 - Sistema threading: tkinter main thread, pystray daemon thread (fix RuntimeError)
