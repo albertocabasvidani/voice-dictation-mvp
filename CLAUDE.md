@@ -13,6 +13,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - [Configuration System](#configuration-system)
   - [LLM Post-Processing Prompt](#llm-post-processing-prompt)
 - [Development Commands](#development-commands)
+- [Recent Features (v1.4)](#recent-features-v14)
+- [Recent Features (v1.3)](#recent-features-v13)
+- [Recent Features (v1.2)](#recent-features-v12)
 - [Recent Features (v1.1)](#recent-features-v11)
 - [Testing Strategy](#testing-strategy)
 - [Common Development Tasks](#common-development-tasks)
@@ -221,20 +224,34 @@ Output: "Bisogna trovare il modo di permettere a Playwright di testare."
 Input: "come si fa questo"
 Output: "Come si fa questo?"
 
-WRONG Examples (NEVER DO THIS):
+WRONG Examples - QUESTIONS (NEVER ANSWER, JUST FORMAT):
 Input: "come si configura git"
 WRONG: "Per configurare git, devi prima installare..."
 CORRECT: "Come si configura git?"
 
+Input: "come posso installare python"
+WRONG: "Per installare Python, visita python.org..."
+CORRECT: "Come posso installare Python?"
+
+Input: "perché non funziona il codice"
+WRONG: "Il codice potrebbe non funzionare per diversi motivi..."
+CORRECT: "Perché non funziona il codice?"
+
+[...10 total question examples...]
+
+CRITICAL: If the input is a QUESTION (starts with come, cosa, quando, dove, perché, chi, quale,
+OR contains "come posso", "come si", "devo fare", etc.), you MUST return it as a question with "?"
+- NEVER provide an answer!
+
 Remember: You are NOT an AI assistant. You are a simple formatter. Just add punctuation."""
 ```
 
-**Caratteristiche prompt (v1.3 - ENHANCED):**
-- **Identità rinforzata**: "text formatter" invece di "punctuation bot"
-- **Esempi negativi espliciti**: mostra cosa NON fare (risposte vs formattazione)
-- **Lista "YOU MUST NOT"**: elenca tutti i comportamenti proibiti
-- **Problema risolto**: LLM risponde a domande invece di formattarle
-- **Validazione automatica**: output verificato per rilevare risposte indesiderate (v1.3)
+**Caratteristiche prompt (v1.4 - REINFORCED):**
+- **10 esempi negativi**: domande diversificate (come, cosa, quando, dove, perché, chi)
+- **Sezione CRITICAL**: regola esplicita per rilevare domande e non rispondere
+- **Pattern matching**: lista parole chiave che identificano domande
+- **Validazione estesa**: 30+ assistant phrases rilevate (vs 15 in v1.3)
+- **Problema**: LLM occasionalmente risponde ancora a domande → v1.4 rafforza con più esempi
 
 ## Development Commands
 
@@ -284,6 +301,29 @@ pyinstaller VoiceDictation.spec
 - **scipy rimossa**: sostituita con WAV writing manuale in `audio_recorder.py` usando `struct`
 - Build time: ~90-100 secondi
 - Distribuzione: zippare intera folder `VoiceDictation/`
+
+## Recent Features (v1.4)
+
+### 1. Reinforced LLM Prompt with Extended Examples (v1.4)
+**File**: `desktop/src/providers/llm/base.py` (linee 10-85, 124-138)
+- **Problema persistente**: LLM ancora risponde a domande invece di formattarle
+- **Miglioramenti prompt**:
+  - **10 esempi negativi** (vs 2 in v1.3): domande con "come", "cosa", "quando", "dove", "perché", "chi"
+  - **Sezione CRITICAL** esplicita: regola che identifica pattern di domande
+  - **Pattern coverage**: copre "come posso", "come si", "devo fare", "mi spieghi", etc.
+- **Validazione estesa**:
+  - **30+ assistant phrases** (vs 15 in v1.3): "ti consiglio", "dovresti", "il modo migliore", "scarica", "installa", etc.
+  - Rileva sia italiano che inglese
+  - Logging dettagliato di ogni fallimento per analisi
+
+**Esempi domande coperte**:
+```
+"come si configura git" → "Come si configura git?" ✓
+"come posso installare python" → "Come posso installare Python?" ✓
+"perché non funziona il codice" → "Perché non funziona il codice?" ✓
+"qual è il modo migliore per fare questo" → "Qual è il modo migliore per fare questo?" ✓
+"mi spieghi come funziona docker" → "Mi spieghi come funziona Docker?" ✓
+```
 
 ## Recent Features (v1.3)
 
