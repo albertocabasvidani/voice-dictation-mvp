@@ -309,6 +309,16 @@ Validation: FAILED (found "devi")
 Fallback output: "Come si configura git."
 ```
 
+### 2. Recording Lock After ESC Fix (v1.3)
+**File**: `desktop/src/main.py` (linee 150-180)
+- **Problema**: Dopo aver premuto ESC per cancellare una registrazione, non è più possibile registrare
+- **Causa**: Se `audio_recorder.start_recording()` falliva (es. device occupato), `is_recording` rimaneva `True`
+- **Fix**: Try-except in `_start_recording()` che resetta completamente lo stato in caso di errore
+- **Comportamento**:
+  - Se `start_recording()` fallisce → reset `is_recording`, nascondi widget, mostra errore in tray
+  - Permette di ritentare la registrazione dopo un errore
+  - Previene stato inconsistente tra flag e stream audio
+
 ## Recent Features (v1.2)
 
 ### 1. Real-time Auto-Gain (NEW in v1.2)

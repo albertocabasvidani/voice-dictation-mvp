@@ -162,7 +162,18 @@ class VoiceDictationApp:
         self.recording_widget = RecordingWidget()
         self.recording_widget.show()
 
-        self.audio_recorder.start_recording()
+        try:
+            self.audio_recorder.start_recording()
+        except Exception as e:
+            print(f"Failed to start recording: {e}")
+            # Reset state
+            self.is_recording = False
+            self.system_tray.set_recording(False)
+            self.system_tray.set_status(f"Error: {str(e)[:50]}")
+            if self.recording_widget:
+                self.recording_widget.hide()
+                self.recording_widget = None
+            return
 
         # Start recording thread
         self.recording_thread = threading.Thread(target=self._record_loop, daemon=True)
