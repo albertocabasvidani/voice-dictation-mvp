@@ -1,5 +1,8 @@
 import requests
+import logging
 from .base import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAILLMProvider(LLMProvider):
@@ -34,7 +37,21 @@ class OpenAILLMProvider(LLMProvider):
             )
             response.raise_for_status()
             result = response.json()
-            return result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            llm_output = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
+            # Validate output
+            is_valid, reason = self.validate_output(text, llm_output)
+            if not is_valid:
+                logger.error(f"LLM output validation failed: {reason}. Using fallback formatting.")
+                # Fallback: simple capitalization and period
+                fallback = text.strip()
+                if fallback and fallback[0].islower():
+                    fallback = fallback[0].upper() + fallback[1:]
+                if fallback and not fallback.endswith(('.', '!', '?')):
+                    fallback += '.'
+                return fallback
+
+            return llm_output
 
         except requests.exceptions.Timeout:
             raise Exception("OpenAI API timeout - try again")

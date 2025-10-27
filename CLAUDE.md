@@ -189,41 +189,52 @@ Ogni provider implementa interfaccia comune:
 
 ### LLM Post-Processing Prompt
 
-Sistema prompt per tutti i provider LLM (in `src/providers/llm/base.py` - `LLMProvider.SYSTEM_PROMPT`):
+Sistema prompt per tutti i provider LLM (in `desktop/src/providers/llm/base.py` - `LLMProvider.SYSTEM_PROMPT`):
 
 ```python
-SYSTEM_PROMPT = """You are a punctuation bot. You ONLY add punctuation to text. You NEVER answer questions or provide information.
+SYSTEM_PROMPT = """You are a text formatter. You ONLY format text. You are NOT an assistant.
 
-YOUR ONLY TASK:
-Take the input text and return it with proper punctuation and capitalization.
-DO NOT answer the content.
-DO NOT provide help.
-DO NOT explain anything.
-Just add punctuation.
+YOUR ONLY JOB:
+1. Read the input text
+2. Add punctuation (periods, commas, question marks)
+3. Fix capitalization
+4. Return the SAME text (just formatted)
 
-RULES:
-- Remove ONLY these sounds: um, uh, eh, mm, hmm, ah
-- Add periods, commas, question marks
-- Fix capitalization
-- Return EXACTLY the same words (just cleaned)
+YOU MUST NOT:
+- Answer questions
+- Provide information
+- Give instructions
+- Explain anything
+- Expand on topics
+- Add new content
 
-CRITICAL: If the input is a question, DO NOT answer it. Just punctuate it and return it.
+FORMATTING RULES:
+- Remove ONLY: um, uh, eh, mm, hmm, ah
+- Add punctuation and capitalization
+- Keep EVERY other word unchanged
+- Return ONLY the formatted text (no extra words)
 
-Examples:
-"bisogna trovare il modo di permettere a playwright di testare" → "Bisogna trovare il modo di permettere a Playwright di testare."
-"come si fa questo" → "Come si fa questo?"
-"um penso che dovremmo provare" → "Penso che dovremmo provare."
+CORRECT Examples:
+Input: "bisogna trovare il modo di permettere a playwright di testare"
+Output: "Bisogna trovare il modo di permettere a Playwright di testare."
 
-NEVER provide answers, guides, or explanations. Only punctuate."""
+Input: "come si fa questo"
+Output: "Come si fa questo?"
+
+WRONG Examples (NEVER DO THIS):
+Input: "come si configura git"
+WRONG: "Per configurare git, devi prima installare..."
+CORRECT: "Come si configura git?"
+
+Remember: You are NOT an AI assistant. You are a simple formatter. Just add punctuation."""
 ```
 
-**Caratteristiche prompt (v1.2.1 - CRITICAL FIX):**
-- **Ruolo esplicito**: "punctuation bot" - non un assistente
-- **NEVER answer questions**: previene LLM che risponde invece di punteggiare
-- **Problema risolto**: Input "bisogna trovare il modo di permettere a Playwright di testare" generava guida completa invece di solo punteggiare
-- **Ultra-semplice**: solo punteggiatura e capitalizzazione, rimuove hesitation sounds
-- **Esempi problematici inclusi**: "come si fa questo" per insegnare a NON rispondere
-- NO formattazione avanzata (liste, code blocks, etc.)
+**Caratteristiche prompt (v1.3 - ENHANCED):**
+- **Identità rinforzata**: "text formatter" invece di "punctuation bot"
+- **Esempi negativi espliciti**: mostra cosa NON fare (risposte vs formattazione)
+- **Lista "YOU MUST NOT"**: elenca tutti i comportamenti proibiti
+- **Problema risolto**: LLM risponde a domande invece di formattarle
+- **Validazione automatica**: output verificato per rilevare risposte indesiderate (v1.3)
 
 ## Development Commands
 
@@ -273,6 +284,30 @@ pyinstaller VoiceDictation.spec
 - **scipy rimossa**: sostituita con WAV writing manuale in `audio_recorder.py` usando `struct`
 - Build time: ~90-100 secondi
 - Distribuzione: zippare intera folder `VoiceDictation/`
+
+## Recent Features (v1.3)
+
+### 1. LLM Output Validation System (NEW in v1.3)
+**Files**: `desktop/src/providers/llm/base.py` (linee 58-115), tutti i provider LLM
+- **Problema**: LLM risponde a domande invece di formattare (es. "come si configura git" → guida completa)
+- **Soluzione doppia**:
+  1. **Prompt migliorato**: esempi negativi espliciti, lista "YOU MUST NOT", identità "text formatter"
+  2. **Validazione automatica**: metodo `validate_output()` in base class
+- **Controlli validazione**:
+  - **Length check**: output >2x input → probabilmente ha aggiunto contenuto
+  - **Assistant phrases**: rileva "ecco", "devi", "puoi", "per fare", "here are", "you need", etc.
+  - **Markdown formatting**: rileva liste (`- `, `1.`), code blocks (` ``` `)
+- **Fallback sicuro**: se validazione fallisce → capitalizza prima lettera + punto finale
+- **Logging**: ogni fallimento loggato con input/output per debug
+- **Applicato a tutti i provider**: Groq, OpenAI, Ollama
+
+**Esempio comportamento**:
+```
+Input: "come si configura git"
+LLM output (INVALID): "Per configurare git, devi prima installare..."
+Validation: FAILED (found "devi")
+Fallback output: "Come si configura git."
+```
 
 ## Recent Features (v1.2)
 
